@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2de875c11cd28c84da7b8239d935ad4d, type: 3}
+  m_Name: MapBlockLibrary 1
+  m_EditorClassIdentifier: 
+  dataLibrary:
+    _serializedList:
+    - Key: Bed
+      Value: {fileID: 11400000, guid: 679c7ef80204b1e4199a88a406c44764, type: 2}
+    - Key: Chair
+      Value: {fileID: 11400000, guid: 69cc3ceae17b8d147a3c59e5b44a01a3, type: 2}
+    - Key: Drawer
+      Value: {fileID: 11400000, guid: fcab444e68344554a94c753ac51087e3, type: 2}
+    - Key: FenceTile
+      Value: {fileID: 11400000, guid: 8f57e5f607a07bd43a48194df2984fb4, type: 2}
+    - Key: HillTile
+      Value: {fileID: 11400000, guid: b062acb2527b0f9419d73d4ad48a680b, type: 2}
+    - Key: LakeTile
+      Value: {fileID: 11400000, guid: 211e9e3f7b648504ab1f860c2d035be9, type: 2}
+    - Key: Table
+      Value: {fileID: 11400000, guid: 1783f1eac9308ba409c0085ec3c3c0e1, type: 2}
+    - Key: WallTile
+      Value: {fileID: 11400000, guid: 1261f2f960bda80408ae79cc40b1d5a5, type: 2}
+    - Key: Tree
+      Value: {fileID: 11400000, guid: 6951b1831ae3f974eaba6615448e65a8, type: 2}
