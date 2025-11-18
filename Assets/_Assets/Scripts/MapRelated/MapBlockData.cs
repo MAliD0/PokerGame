@@ -18,17 +18,18 @@ public class MapBlockData : ItemData
 
     public MapLayerType mapLayerType;
 
-    public bool isMultiblock;
-    public bool breakable;
+    [FoldoutGroup("Settings")]public bool isMultiblock;
+    [FoldoutGroup("Settings")]public bool breakable;
+    [FoldoutGroup("Settings")]
     [ShowIf("breakable")]
     public int maxHealth;
 
     [ShowIf("isMultiblock")]
     public List<Vector2Int> tileOffsets = new List<Vector2Int>();
 
-    public bool hasLoot;
-    [ShowIf("hasLoot")] [SerializeField] bool dropSelf;
-    [HideIf("dropSelf")] [ShowIf("hasLoot")] public List<LootRules> loot= new List<LootRules>();
+    [FoldoutGroup("Settings")] public bool hasLoot;
+    [FoldoutGroup("Loot")][ShowIf("hasLoot")] [SerializeField] bool dropSelf;
+    [FoldoutGroup("Loot")][HideIf("dropSelf")][ShowIf("hasLoot")] public List<LootRules> loot= new List<LootRules>();
     
     
     private void OnValidate()

@@ -16,6 +16,11 @@ MonoBehaviour:
   itemType: 1
   isStackable: 1
   maxStack: 24
+  isCraftable: 1
+  recipeItems:
+  - itemData: {fileID: 11400000, guid: 819c2a4711dbe614299c5764365e006f, type: 2}
+    itemNumber: 5
+  craftAmount: 1
   mapBlockType: 1
   tile: {fileID: 0}
   gameObject: {fileID: 7337151912051207136, guid: 1b09778d49d7ebd45a36761e55f86966, type: 3}

@@ -32,3 +32,5 @@ MonoBehaviour:
       Value: {fileID: 11400000, guid: 1261f2f960bda80408ae79cc40b1d5a5, type: 2}
     - Key: Tree
       Value: {fileID: 11400000, guid: 6951b1831ae3f974eaba6615448e65a8, type: 2}
+    - Key: WorkBench
+      Value: {fileID: 11400000, guid: 0dedb88db8ba1e64d8fe438d150ec389, type: 2}

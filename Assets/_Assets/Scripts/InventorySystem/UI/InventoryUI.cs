@@ -92,7 +92,7 @@ public class InventoryUI : GameUIElement
     {
         if(slot != null)
         {
-            if(selectedSlot != null)
+            if(selectedSlot != null && selectedSlot != slot)
             {
                 inventory.MoveItems(startDragSlot.index, selectedSlot.index);
             }

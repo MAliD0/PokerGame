@@ -10,16 +10,22 @@ public class PlayerInteractionManager : MonoBehaviour
 
     public IInteractable[] CastForInteractables(Vector2 position, float radius)
     {
-        RaycastHit2D[] hits = Physics2D.CircleCastAll(position, radius, Vector2.down);
+        //RaycastHit2D[] hits = Physics2D.CircleCastAll(position, radius, Vector2.down);
+        Collider2D[] hits = Physics2D.OverlapCircleAll(position, radius);
+
+
         List<IInteractable> interactables = new List<IInteractable>();
 
-        foreach (RaycastHit2D hit in hits)
+        foreach (Collider2D hit in hits)
         {
-            if(hit.collider.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable))
+            if(hit.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable))
             {
                 interactables.Add(interactable);    
             }
         }
+
+        //interactables.Reverse();
+
         return interactables.ToArray();
     }
 }

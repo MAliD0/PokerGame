@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mapWidth: 80
   mapHeight: 80
-  scale: 6.57
+  scale: 6.7
   pow: 1
   octaves: 4
-  persistance: 0.35
-  lacunarity: 2
+  persistance: 0.18
+  lacunarity: 3.3
   offset: {x: 0, y: 0}

@@ -16,9 +16,11 @@ MonoBehaviour:
   itemType: 1
   isStackable: 1
   maxStack: 24
+  isCraftable: 0
+  recipeItems: []
   mapBlockType: 1
   tile: {fileID: 0}
-  gameObject: {fileID: 7337151912051207136, guid: cc1de94f4aff49843a765fdb936c074e, type: 3}
+  gameObject: {fileID: 5155287878607668933, guid: 4a29eb83b724de34d89fef0c39b07033, type: 3}
   mapLayerType: 3
   isMultiblock: 0
   breakable: 1

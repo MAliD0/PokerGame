@@ -33,11 +33,25 @@ public class Inventory : MonoBehaviour
     {
         RemoveItem(data, number);
     }
+
+    public bool HasItem(ItemData item, int number)
+    {
+        List<ItemSlot> items = slots.FindAll(x => x.itemData == item);
+
+        int numberInInventory = 0;
+
+        foreach (var i in items)
+        {
+            numberInInventory += i.number;
+        }
+
+        return numberInInventory >= number;
+    }
+
     public int AddItem(string data, int number)
     {
         return AddItem(ItemDatabase.instance.GetItem(data), number);
     }
-
     public int AddItem(ItemData data, int number)
     {
         int excess = number;
@@ -104,6 +118,7 @@ public class Inventory : MonoBehaviour
         onInventoryUpdate?.Invoke();
         return excess;
     }
+    
     public void MoveItems(int from, int to)
     {
         if (from > slots.Count && from < 0) return;

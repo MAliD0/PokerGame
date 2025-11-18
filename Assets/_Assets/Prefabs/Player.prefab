@@ -94,6 +94,7 @@ GameObject:
   - component: {fileID: 9193355001758260674}
   - component: {fileID: 7004166383434061777}
   - component: {fileID: 8844803794175443068}
+  - component: {fileID: -4958921279185144784}
   - component: {fileID: 4877327079985587422}
   - component: {fileID: 4798906992671373067}
   - component: {fileID: 4093431446960275018}
@@ -140,12 +141,14 @@ MonoBehaviour:
   playerAnimationController: {fileID: 4535540288308040747}
   playerInputManager: {fileID: 4617047226964543108}
   playerInteractionManager: {fileID: 5944366542148416099}
+  playerCraftingManager: {fileID: -4958921279185144784}
   inventory: {fileID: 8844803794175443068}
   dsManager: {fileID: 9193355001758260674}
   rb: {fileID: 4877327079985587422}
-  textToSay: 
   damage: 5
-  mapBlockData: {fileID: 11400000, guid: fcab444e68344554a94c753ac51087e3, type: 2}
+  itemHeld:
+    itemData: {fileID: 0}
+    number: 0
   maxMessageLength: 40
   castRadius: 2.01
 --- !u!114 &4617047226964543108
@@ -284,6 +287,20 @@ MonoBehaviour:
   inventorySize: 7
   data: {fileID: 11400000, guid: b062acb2527b0f9419d73d4ad48a680b, type: 2}
   number: 1
+--- !u!114 &-4958921279185144784
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2720719857553812312}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: acd7aec71b2ec6a4181f9aa2137a0afd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  craftingMenu: {fileID: 0}
+  playerInventory: {fileID: 8844803794175443068}
 --- !u!50 &4877327079985587422
 Rigidbody2D:
   serializedVersion: 4

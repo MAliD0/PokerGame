@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.Tilemaps;
 using static Unity.Collections.AllocatorManager;
 using NoiseGeneration;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace ProceduralGeneration
 {
@@ -51,6 +52,7 @@ namespace ProceduralGeneration
         [HorizontalGroup("Worley Noise/Values")]
         [Range(0, 10)][SerializeField] int pointsNumber;
         #endregion
+
         #region TileMap
         [FoldoutGroup("Tile Map")][HorizontalGroup("Tile Map/Ref")][SerializeField] WorldMapManager worldMapManager;
         [FoldoutGroup("Tile Map")][HorizontalGroup("Tile Map/Ref")][SerializeField] TilesLibrary tilesLibrary;
@@ -62,6 +64,11 @@ namespace ProceduralGeneration
         [FoldoutGroup("Bioms Map")][SerializeField] NoiseSettings temperatureNoiseSettings;
         [FoldoutGroup("Bioms Map")][SerializeField] NoiseSettings moistureNoiseSettings;
         [FoldoutGroup("Bioms Map")][SerializeField] List<BiomeData> biomes;
+        #endregion
+
+        #region AdditionalGenerations
+        [FoldoutGroup("AdditionalGeneration")] List<AdditionalGeneratingObject> additionalGeneratingObjects;
+
         #endregion
 
         #region Maximas/Minimas
@@ -77,6 +84,26 @@ namespace ProceduralGeneration
         #endregion
 
         private float startPos;
+
+
+        struct AdditionalGeneratingObject
+        {
+            public NoiseSettings noiseSettings;
+            public MapBlockData mapBlockData;
+
+            public NoiseMode noiseMode;
+
+            [FoldoutGroup("Settings")] public float minValue;
+            [FoldoutGroup("Settings")] public float maxValue;
+
+            [FoldoutGroup("Island Settings")]
+            [HorizontalGroup("Island Settings/island")]
+            [SerializeField] public int radius;
+
+            [HorizontalGroup("Island Settings/island")]
+            [SerializeField] public float strength;
+        }
+
 
         [Button]
         public void GenerateMap()
@@ -146,31 +173,33 @@ namespace ProceduralGeneration
                     worldMapManager.ClearTilemaps();
 
                     var tilePositions = new List<Vector3Int>();
+                    var tilePosition = new Vector3Int();
+
                     var tileVariant = new List<TileBase>();
 
                     for (int x = 0; x < noiseSettings.mapWidth; x++)
                     {
                         for (int y = 0; y < noiseSettings.mapHeight; y++)
                         {
-                            tilePositions.Add(new Vector3Int(x - (noiseSettings.mapWidth/2), y - (noiseSettings.mapHeight / 2)));
+                            tilePosition = new Vector3Int(x - (noiseSettings.mapWidth / 2), y - (noiseSettings.mapHeight / 2));
+                            tilePositions.Add(tilePosition);
+                         
                             float currentHeight = noiseMap[x, y];
                             for (int i = 0; i < tileTypes.Length; i++)
                             {
                                 if (currentHeight <= tileTypes[i].height)
                                 {
-                                    print("Do smth");
                                     tileVariant.Add(tileTypes[i].tile);
-                                    worldMapManager.SetTileRequestServerRpc(new Vector2Int(x - (noiseSettings.mapWidth / 2), y - (noiseSettings.mapHeight / 2)), tileTypes[i].tile.name);
+                                    worldMapManager.SetTileRequestServerRpc((Vector2Int)tilePosition, tileTypes[i].tile.name);
+                                    
                                     //tilemap.SetTile(new Vector3Int(x, y), tileTypes[i].tile);
                                     break;
                                 }
                             }
                         }
                     }
-                    //tilemap.RefreshAllTiles();
-                    //tilemap.SetTiles(tilePositions.ToArray(), tileVariant.ToArray());
-                    //tilemap.gameObject.SetActive(true);
                     
+
                     break;
                 case DrawMode.BiomsGeneration:
                     float[,] moistureNoiseMap = Noise.GenerateNoiseMap(moistureNoiseSettings.mapWidth, moistureNoiseSettings.mapHeight, seed, moistureNoiseSettings.scale, moistureNoiseSettings.octaves, moistureNoiseSettings.persistance, moistureNoiseSettings.lacunarity, moistureNoiseSettings.offset);
@@ -225,6 +254,56 @@ namespace ProceduralGeneration
             }
         }
 
+        [Button]
+        private void GenerateAdditionalObject(AdditionalGeneratingObject additionalGeneratingObject)
+        {
+            NoiseMode noiseMode = additionalGeneratingObject.noiseMode;
+            NoiseSettings noiseSettings = additionalGeneratingObject.noiseSettings;
+
+            float[,] noiseMap = Noise.GenerateNoiseMap(noiseSettings.mapWidth, noiseSettings.mapHeight, seed, noiseSettings.scale, noiseSettings.octaves, noiseSettings.persistance, noiseSettings.lacunarity, noiseSettings.offset);
+
+            switch (noiseMode)
+            {
+                case NoiseMode.IslandMap:
+                    noiseMap = Noise.IslandNoise(noiseSettings, noiseMap, additionalGeneratingObject.radius, additionalGeneratingObject.strength);
+                    mapDisplay.DrawTexture(TextureGenerator.TextureFromHeightMap(noiseMap));
+                    break;
+                case NoiseMode.PerlinWorm:
+                    noiseMap = Noise.PerlinWorm(noiseSettings, noiseMap, minTrashold);
+                    break;
+                case NoiseMode.WorleyNoise:
+                    noiseMap = Noise.GenerateOrganicVoronoi(noiseSettings, pointsNumber);
+                    break;
+                case NoiseMode.ScaledPerlin:
+                    noiseMap = Noise.GenerateNoiseMap(noiseSettings.mapWidth, noiseSettings.mapHeight, seed, noiseSettings.scale, noiseSettings.octaves, noiseSettings.persistance, noiseSettings.lacunarity, noiseSettings.offset, noiseSettings.pow);
+                    break;
+            }
+
+            switch (drawMode)
+            {
+                case DrawMode.TileMap:
+
+                    var tilePosition = new Vector3Int();
+                    var tileVariant = additionalGeneratingObject.mapBlockData;
+
+                    for (int x = 0; x < noiseSettings.mapWidth; x++)
+                    {
+                        for (int y = 0; y < noiseSettings.mapHeight; y++)
+                        {
+                            tilePosition = new Vector3Int(x - (noiseSettings.mapWidth / 2), y - (noiseSettings.mapHeight / 2));
+                            float currentHeight = noiseMap[x, y];
+
+                            if(currentHeight > additionalGeneratingObject.minValue && currentHeight < additionalGeneratingObject.maxValue)
+                            {
+                                worldMapManager.SetTileRequestServerRpc((Vector2Int)tilePosition, additionalGeneratingObject.mapBlockData.GetItemID());
+                            }
+                        }
+                    }
+
+                break;
+            }
+        }
+
         public BiomeData GetBiomeAtPoint(float height, float temperature, float moisture)
         {
             foreach (var biome in biomes)
@@ -268,7 +347,10 @@ namespace ProceduralGeneration
                 startPos += 0.02f;
             }
         }
+    
     }
+
+    
 
     [Serializable]
     public struct HeightBioms

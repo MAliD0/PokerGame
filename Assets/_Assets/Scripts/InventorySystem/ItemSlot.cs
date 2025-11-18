@@ -45,7 +45,7 @@ public class ItemSlot
         {
             itemData = null;
         }
-        return removeNumber-number;
+        return count-removeNumber;
     }
 
     public void SetItemData(ItemData data, int number = 0)

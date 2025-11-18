@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 532a54efc2e2fad45a2cf8a6cca0626d, type: 3}
-  m_Name: TestNoise
+  m_Name: TreeNoise
   m_EditorClassIdentifier: 
-  mapWidth: 800
-  mapHeight: 800
-  scale: 214.6
+  mapWidth: 80
+  mapHeight: 80
+  scale: 6.35
   pow: 1
   octaves: 1
-  persistance: 0
-  lacunarity: 2
+  persistance: 0.53
+  lacunarity: 3.3
   offset: {x: 0, y: 0}
