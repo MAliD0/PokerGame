@@ -18,57 +18,60 @@ public class MapLayerGraphics : NetworkBehaviour
     public Tilemap LayerVisualsTiles;
 
     [Header("Runtime caches")]
-    [ShowInInspector, ReadOnly] public SerializedDictionary<Vector2Int, GameObject> CellToGO;
+    [ShowInInspector, ReadOnly] public SerializedDictionary<Vector2Int, SerializedDictionary<Vector2Int, GameObject>> CellToGO;
     private readonly Dictionary<string, GameObject> _netlessById = new(); // только не-сетевые
 
     public void Init(MapLayerLogic logic)
     {
         layerLogic = logic;
-        CellToGO = new SerializedDictionary<Vector2Int, GameObject>();
+        CellToGO = new SerializedDictionary<Vector2Int, SerializedDictionary<Vector2Int, GameObject>>();
 
         layerLogic.onMapTilePlaced += OnMapTilePlaced;
         layerLogic.onMapTileRemoved += OnMapTileRemoved;
     }
 
-    private void OnMapTilePlaced(List<Vector2Int> positions, MapBlockData data)
+    private void OnMapTilePlaced(Dictionary<Vector2Int,HashSet<Vector2Int>> positions, MapBlockData data)
     {
         // Рисуем только ТАЙЛЫ. GO спавнятся/биндятся менеджером через RPC.
         if (data.mapBlockType == MapBlockType.Tile && data.tile != null)
         {
-            foreach (var pos in positions)
+            foreach (var pos in positions.Keys)
                 LayerVisualsTiles.SetTile(new Vector3Int(pos.x, pos.y, 0), data.tile);
         }
     }
 
-    private void OnMapTileRemoved(List<Vector2Int> positions, MapBlockType type)
+    private void OnMapTileRemoved(Dictionary<Vector2Int, HashSet<Vector2Int>> positions, MapBlockType type)
     {
         // Для тайлов — снимаем визуалы; для GO — ничего (анбинд делает менеджер).
         if (type == MapBlockType.Tile)
         {
             foreach (var pos in positions)
-                LayerVisualsTiles.SetTile(new Vector3Int(pos.x, pos.y, 0), null);
+                LayerVisualsTiles.SetTile(new Vector3Int(pos.Key.x, pos.Key.y, 0), null);
         }
     }
 
     // ------------------------ API для менеджера ------------------------
 
-    public void BindObject(List<Vector2Int> cells, GameObject go, string netlessId = null)
+    public void BindObject(Vector2Int anchor ,List<Vector2Int> cells, GameObject go, string netlessId = null)
     {
         if (netlessId != null)
             _netlessById[netlessId] = go;
 
-        foreach (var c in cells)
-            CellToGO[c] = go;
+        if(!CellToGO.ContainsKey(anchor))
+            CellToGO.Add(anchor, new SerializedDictionary<Vector2Int, GameObject>());
+
+        foreach (var cell in cells)
+            CellToGO[anchor].Add(cell, go);
     }
 
-    public void UnbindByCells(List<Vector2Int> cells, bool destroyNonNetworked = false)
+    public void UnbindByCells(Vector2Int anchor, List<Vector2Int> cells, bool destroyNonNetworked = false)
     {
         GameObject any = null;
         foreach (var c in cells)
         {
             if (CellToGO.TryGetValue(c, out var go))
             {
-                any = go;
+                //any = go;
                 CellToGO.Remove(c);
             }
         }
@@ -85,7 +88,7 @@ public class MapLayerGraphics : NetworkBehaviour
         // вычищаем все клетки, где этот GO привязан
         var toRemove = new List<Vector2Int>();
         foreach (var kv in CellToGO)
-            if (kv.Value == go) toRemove.Add(kv.Key);
+            //if (kv.Value == go) toRemove.Add(kv.Key);
 
         foreach (var c in toRemove) CellToGO.Remove(c);
 

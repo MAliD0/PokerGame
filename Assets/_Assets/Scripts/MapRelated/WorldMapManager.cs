@@ -2,6 +2,7 @@
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -60,7 +61,8 @@ public class WorldMapManager : NetworkBehaviour
     public struct NetlessEntry
     {
         public MapLayerType layer;
-        public Vector2Int anchor;
+        public Vector2Int anchor;       // tile cell anchor (kept for lookup / dict keys)
+        public Vector2Int localAnchor;  // subtileIndex anchor inside the tile (0..SubtilesPerCell-1)
         public Vector2Int[] cells;
         public string itemId;
         public Vector3 pos;
@@ -75,13 +77,11 @@ public class WorldMapManager : NetworkBehaviour
         // Инициализируем слои данных
         baseLayer = new MapLayerLogic(new MapBounds(minX,maxX,minY,maxY));
         foreLayer = new MapLayerLogic(new MapBounds(minX, maxX, minY, maxY));
-        //wallLayer = new MapLayerLogic(new MapBounds(minX,maxX,minY,maxY));
         waterLayer = new MapLayerLogic(new MapBounds(minX, maxX, minY, maxY));
 
         // Инициализируем графику
         baseLayerGraphics.Init(baseLayer);
         foreLayerGraphics.Init(foreLayer);
-        //wallLayerGraphics.Init(wallLayer);
         waterLayerGraphics.Init(waterLayer);
 
         _netlessRegistry = new SerializedDictionary<string, NetlessEntry>();
@@ -96,12 +96,10 @@ public class WorldMapManager : NetworkBehaviour
                 print("Enter");
                 baseLayer.onMapTilePlaced += (cells, data) => OnServer_TilePlaced(MapLayerType.backGround, cells, data);
                 foreLayer.onMapTilePlaced += (cells, data) => OnServer_TilePlaced(MapLayerType.foreGround, cells, data);
-                //wallLayer.onMapTilePlaced += (cells, data) => OnServer_TilePlaced(MapLayerType.wallGround, cells, data);
                 waterLayer.onMapTilePlaced += (cells, data) => OnServer_TilePlaced(MapLayerType.waterGround, cells, data);
 
                 baseLayer.onMapTileRemoved += (cells, type) => OnServer_TileRemoved(MapLayerType.backGround, cells, type);
                 foreLayer.onMapTileRemoved += (cells, type) => OnServer_TileRemoved(MapLayerType.foreGround, cells, type);
-                //wallLayer.onMapTileRemoved += (cells, type) => OnServer_TileRemoved(MapLayerType.wallGround, cells, type);
                 waterLayer.onMapTileRemoved += (cells, type) => OnServer_TileRemoved(MapLayerType.waterGround, cells, type);
 
                 // Для снапшотов нетворк-лесс при позднем коннекте
@@ -112,7 +110,7 @@ public class WorldMapManager : NetworkBehaviour
 
     // ============ Публичные команды (клиент → сервер) ============
 
-    public bool CheckIfPlacementIsPossible(Vector2Int pos, string mapBlockDataId)
+    public bool CheckIfPlacementIsPossible(Vector2 pos, string mapBlockDataId)
     {
         var data = blockLibrary.GetMapBlockData(mapBlockDataId);
         if (data == null) return false; 
@@ -132,15 +130,15 @@ public class WorldMapManager : NetworkBehaviour
 
             if (data.isMultiblock)
             {
-                foreach (var off in data.tileOffsets)
-                {
-                    var cell = pos + off;
-                    if (!baseLayer.IsTilePresented(cell))
-                    {
-                        Debug.LogWarning($"[Rules] ForeGround без BackGround на {cell}");
-                        return false;
-                    }
-                }
+                //foreach (var off in data.tileOffsets)
+                //{
+                //    var cell = pos + off;
+                //    if (!baseLayer.IsTilePresented(cell))
+                //    {
+                //        Debug.LogWarning($"[Rules] ForeGround без BackGround на {cell}");
+                //        return false;
+                //    }
+                //}
             }
         }
         if (data.mapLayerType == MapLayerType.waterGround && baseLayer.IsTilePresented(pos))
@@ -155,7 +153,7 @@ public class WorldMapManager : NetworkBehaviour
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void DamageTileRequestServerRpc(Vector2Int pos, int amount)
+    public void DamageTileRequestServerRpc(Vector2 pos, int amount)
     {
         // 1) найдём слой/якорь/данные
         MapLayerType layerType = DetectLayerByCell(pos);
@@ -168,39 +166,41 @@ public class WorldMapManager : NetworkBehaviour
         if (data == null || !data.breakable) return;
 
         var anchor = tile.Anchor;
+        var subtileIndex = tile.Position;
+
         // 2) применим урон (серверная истина)
-        bool broken = layer.Damage(anchor, data, Mathf.Max(1, amount));
+        bool broken = layer.Damage(anchor, subtileIndex,data, Mathf.Max(1, amount));
 
         // 3) оповестим клиентов об HP (чтобы у них сработал графический хендлер)
-        UpdateTileHealthClientRpc(layerType, anchor, layer.GetHealth(anchor), data.maxHealth);
+        UpdateTileHealthClientRpc(layerType, anchor, subtileIndex,layer.GetHealth(anchor, subtileIndex), data.maxHealth);
 
         // 4) если сломали — дроп и удаление
         if (broken)
         {
             //DropLootServer(anchor, data);
             LootSpawnerManager.Instance.SpawnLootForBlock(layer.GetMapTile(pos).BlockData, pos);
-            layer.RemoveTile(anchor); // вызовет onMapTileRemoved -> графика чистит
-            DestroyTileForClientsClientRpc(anchor, layerType, ConnectionManager.instance.SendAllExceptHost());
+            layer.RemoveTile(anchor, subtileIndex); // вызовет onMapTileRemoved -> графика чистит
+            DestroyTileForClientsClientRpc(anchor, subtileIndex,layerType, ConnectionManager.instance.SendAllExceptHost());
         }
     }
 
 
     [ServerRpc(RequireOwnership = false)]
-    public void SetTileRequestServerRpc(Vector2Int pos, string mapBlockDataId)
+    public void SetTileRequestServerRpc(Vector2 pos, string mapBlockDataId)
     {
         var data = blockLibrary.GetMapBlockData(mapBlockDataId);
         SetTileServer(pos, data);
     }
 
     [ServerRpc(RequireOwnership = false)]
-    public void DestroyTileRequestServerRpc(Vector2Int pos)
+    public void DestroyTileRequestServerRpc(Vector2Int tile, Vector2Int subtile)
     {
-        DestroyTileServer(pos);
+        DestroyTileServer(tile, subtile);
     }
 
     // ============ Серверная логика установки/удаления ============
 
-    private void SetTileServer(Vector2Int pos, MapBlockData data)
+    private void SetTileServer(Vector2 pos, MapBlockData data)
     {
         if (data == null) return;
 
@@ -219,15 +219,15 @@ public class WorldMapManager : NetworkBehaviour
 
             if (data.isMultiblock)
                 {
-                    foreach (var off in data.tileOffsets)
-                    {
-                        var cell = pos + off;
-                        if (!baseLayer.IsTilePresented(cell))
-                        {
-                            Debug.LogWarning($"[Rules] ForeGround без BackGround на {cell}");
-                            return;
-                        }
-                    }
+                    //foreach (var off in data.tileOffsets)
+                    //{
+                    //    var cell = pos + off;
+                    //    if (!baseLayer.IsTilePresented(cell))
+                    //    {
+                    //        Debug.LogWarning($"[Rules] ForeGround без BackGround на {cell}");
+                    //        return;
+                    //    }
+                    //}
                 }
         }
         if (data.mapLayerType == MapLayerType.waterGround && baseLayer.IsTilePresented(pos))
@@ -240,89 +240,103 @@ public class WorldMapManager : NetworkBehaviour
         if (!targetLayer.PlaceBlock(pos, data)) return;
 
         // Сообщаем КЛИЕНТАМ положить тайл/ячейки в свой слой данных
-        SetTileForClientsClientRpc(data.mapLayerType, data.GetItemID(), pos, ConnectionManager.instance.SendAllExceptHost());
+        SetTileForClientsClientRpc(data.mapLayerType, data.GetItemID(), UtillityMath.VectorToVectorInt(pos), ConnectionManager.instance.SendAllExceptHost());
         return;
     }
 
-    private void DestroyTileServer(Vector2Int pos)
+    private void DestroyTileServer(Vector2Int tile, Vector2Int subtile)
     {
         // Находим слой по приоритету (как у тебя было)
         MapLayerLogic layer = null;
         MapLayerType layerType = MapLayerType.backGround;
 
-        if (foreLayer.IsTilePresented(pos)) { layer = foreLayer; layerType = MapLayerType.foreGround; }
-        else if (baseLayer.IsTilePresented(pos)) { layer = baseLayer; layerType = MapLayerType.backGround; }
-        else if (wallLayer.IsTilePresented(pos)) { layer = wallLayer; layerType = MapLayerType.wallGround; }
-        else if (waterLayer.IsTilePresented(pos)) { layer = waterLayer; layerType = MapLayerType.waterGround; }
+        if (foreLayer.IsSubTilePresented(tile, subtile)) { layer = foreLayer; layerType = MapLayerType.foreGround; }
+        else if (baseLayer.IsSubTilePresented(tile, subtile)) { layer = baseLayer; layerType = MapLayerType.backGround; }
+        else if (wallLayer.IsSubTilePresented(tile, subtile)) { layer = wallLayer; layerType = MapLayerType.wallGround; }
+        else if (waterLayer.IsSubTilePresented(tile, subtile)) { layer = waterLayer; layerType = MapLayerType.waterGround; }
 
         if (layer == null) return;
 
-        LootSpawnerManager.Instance.SpawnLootForBlock(layer.GetMapTile(pos).BlockData, pos);
+        LootSpawnerManager.Instance.SpawnLootForBlock(layer.GetMapTile(tile, subtile).BlockData, layer.SubtileToWorldPosition(tile,subtile));
 
         // Удаляем на СЕРВЕРЕ (вызовет OnServer_TileRemoved)
-        layer.RemoveTile(pos);
+        layer.RemoveTile(tile, subtile);
 
         // Просим КЛИЕНТОВ удалить то же самое у себя
-        DestroyTileForClientsClientRpc(pos, layerType, ConnectionManager.instance.SendAllExceptHost());
+        DestroyTileForClientsClientRpc(tile, subtile, layerType, ConnectionManager.instance.SendAllExceptHost());
     }
 
     // ============ Коллбеки сервера на изменения данных ============
 
-    private void OnServer_TilePlaced(MapLayerType layer, List<Vector2Int> cells, MapBlockData data)
+    private void OnServer_TilePlaced(MapLayerType layer, Dictionary<Vector2Int ,HashSet<Vector2Int>> cells, MapBlockData data)
     {
         if (data.mapBlockType != MapBlockType.GameObject) return;
 
-        var anchor = cells[0];
-        var worldPos = new Vector3(anchor.x + 0.5f, anchor.y + 0.5f, 0f);
-        var prefab = blockLibrary.GetMapBlockData(data.GetItemID())?.gameObject;
+        Vector2Int[] occupiedTiles = cells.Keys.ToArray();
 
-        if (!prefab)
+        Vector2Int anchor = occupiedTiles[0];
+        Vector2Int anchorSubTile = cells[occupiedTiles[0]].First();
+
+        MapLayerLogic layerLogic = GetLayer(layer);
+
+        Vector2 worldPos = layerLogic.SubtileToWorldPosition(occupiedTiles[0], anchorSubTile);
+
+        foreach (Vector2Int occupiedTile in occupiedTiles)
         {
-            Debug.LogError($"[TilePlaced] Prefab id={data.GetItemID()} не найден");
-            return;
-        }
+            //this line is under the question
+            //var worldPos = new Vector3(occupiedTile.x + 0.5f, occupiedTile.y + 0.5f, 0f);
 
-        if (prefab.TryGetComponent<NetworkObject>(out _))
-        {
-            // СЕТЕВОЙ GO
-            var go = Instantiate(prefab, worldPos, Quaternion.identity);
-            var no = go.GetComponent<NetworkObject>();
-            no.Spawn();
+            var prefab = blockLibrary.GetMapBlockData(data.GetItemID())?.gameObject;
 
-            // реестр
-            if (!_anchorToNetId.TryGetValue(layer, out var dictNet)) _anchorToNetId[layer] = dictNet = new();
-            dictNet[anchor] = no.NetworkObjectId;
-
-            // Биндинг на клиентах по netId (чтобы графика знала cell->GO)
-            BindObjectByNetIdClientRpc(cells.ToArray(), no.NetworkObjectId, layer);
-        }
-        else
-        {
-            // НЕ-СЕТЕВОЙ GO (гибрид)
-            var id = NewId();
-
-            if (!_anchorToNetlessId.TryGetValue(layer, out var dict)) _anchorToNetlessId[layer] = dict = new();
-            dict[anchor] = id;
-
-            _netlessRegistry[id] = new NetlessEntry
+            if (!prefab)
             {
-                layer = layer,
-                anchor = anchor,
-                cells = cells.ToArray(),
-                itemId = data.GetItemID(),
-                pos = worldPos
-            };
+                Debug.LogError($"[TilePlaced] Prefab id={data.GetItemID()} не найден");
+                return;
+            }
 
-            // Рассылаем спавн всем
-            SpawnNetlessClientRpc(layer, data.GetItemID(), anchor, cells.ToArray(), worldPos, id);
+            if (prefab.TryGetComponent<NetworkObject>(out _))
+            {
+                // СЕТЕВОЙ GO
+                var go = Instantiate(prefab, worldPos, Quaternion.identity);
+                var no = go.GetComponent<NetworkObject>();
+                no.Spawn();
+
+                // реестр
+                if (!_anchorToNetId.TryGetValue(layer, out var dictNet)) _anchorToNetId[layer] = dictNet = new();
+                dictNet[occupiedTile] = no.NetworkObjectId;
+
+                // Биндинг на клиентах по netId (чтобы графика знала cell->GO)
+                BindObjectByNetIdClientRpc(anchor,cells[occupiedTile].ToArray(), no.NetworkObjectId, layer);
+            }
+            else
+            {
+                // НЕ-СЕТЕВОЙ GO (гибрид)
+                var id = NewId();
+
+                if (!_anchorToNetlessId.TryGetValue(layer, out var dict)) _anchorToNetlessId[layer] = dict = new();
+                dict[occupiedTile] = id;
+
+                _netlessRegistry[id] = new NetlessEntry
+                {
+                    layer = layer,
+                    anchor = occupiedTile,
+                    cells = cells[occupiedTile].ToArray(),
+                    itemId = data.GetItemID(),
+                    pos = worldPos
+                };
+
+                //// Рассылаем спавн всем
+                SpawnNetlessClientRpc(layer, data.GetItemID(), occupiedTile, cells[occupiedTile].ToArray(), worldPos, id);
+            }
         }
     }
 
-    private void OnServer_TileRemoved(MapLayerType layer, List<Vector2Int> cells, MapBlockType type)
+    private void OnServer_TileRemoved(MapLayerType layer,Dictionary<Vector2Int,HashSet<Vector2Int>>cells, MapBlockType type)
     {
         if (type != MapBlockType.GameObject) return;
 
-        var anchor = cells[0];
+        var anchor = cells.Keys.First();
+        var subtile = cells[anchor].First();
 
         // 1) Пытаемся удалить сетевой GO
         if (_anchorToNetId.TryGetValue(layer, out var dictNet) && dictNet.TryGetValue(anchor, out var netId))
@@ -333,7 +347,7 @@ public class WorldMapManager : NetworkBehaviour
             dictNet.Remove(anchor);
 
             // отвязываем cell->GO на клиентах (без уничтожения — объект уже деспавнен)
-            UnbindByCellsClientRpc(cells.ToArray(), layer, destroyNonNetworked: false, ConnectionManager.instance.SendAllExceptHost());
+            UnbindByCellsClientRpc(anchor,cells[anchor].ToArray(), layer, destroyNonNetworked: false, ConnectionManager.instance.SendAllExceptHost());
             return;
         }
 
@@ -349,13 +363,13 @@ public class WorldMapManager : NetworkBehaviour
         }
 
         // Fallback: просто отвязать на клиентах (если где-то несостыковка)
-        UnbindByCellsClientRpc(cells.ToArray(), layer, destroyNonNetworked: true);
+        UnbindByCellsClientRpc(anchor, cells[anchor].ToArray(), layer, destroyNonNetworked: true);
     }
 
     // ============ Клиентские RPC (все клиенты или таргет) ============
     
     [ClientRpc]
-    private void UpdateTileHealthClientRpc(MapLayerType layerType, Vector2Int anchor, int hp, int maxHp, ClientRpcParams p = default)
+    private void UpdateTileHealthClientRpc(MapLayerType layerType, Vector2Int anchor, Vector2Int subtile,int hp, int maxHp, ClientRpcParams p = default)
     {
         var layer = GetLayer(layerType);
         var tile = layer?.GetMapTile(anchor);
@@ -363,7 +377,7 @@ public class WorldMapManager : NetworkBehaviour
         if (layer == null || data == null) return;
 
         // установим HP и сгенерим эвент для графики
-        layer.SetHealth(anchor, data, hp, fireEvent: true);
+        layer.SetHealth(anchor, subtile,data, hp, fireEvent: true);
     }
 
     [ClientRpc]
@@ -377,34 +391,34 @@ public class WorldMapManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void DestroyTileForClientsClientRpc(Vector2Int pos, MapLayerType tileType, ClientRpcParams rpcParams = default)
+    private void DestroyTileForClientsClientRpc(Vector2Int tile,Vector2Int subtile, MapLayerType tileType, ClientRpcParams rpcParams = default)
     {
         var layer = GetLayer(tileType);
         if (layer == null) return;
 
-        layer.RemoveTile(pos);
+        layer.RemoveTile(tile, subtile);
     }
 
     [ClientRpc]
-    private void BindObjectByNetIdClientRpc(Vector2Int[] cells, ulong netId, MapLayerType layer, ClientRpcParams rpcParams = default)
+    private void BindObjectByNetIdClientRpc(Vector2Int tile,Vector2Int[] subtiles, ulong netId, MapLayerType layer, ClientRpcParams rpcParams = default)
     {
         if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(netId, out var no))
         {
             // На крайне редких лагах — попробуем пару кадров подождать
-            StartCoroutine(RetryBind(cells, netId, layer));
+            StartCoroutine(RetryBind(tile,subtiles, netId, layer));
             return;
         }
-        GetGraphics(layer).BindObject(new List<Vector2Int>(cells), no.gameObject, null);
+        GetGraphics(layer).BindObject(tile, new List<Vector2Int>(subtiles), no.gameObject, null);
     }
 
-    private System.Collections.IEnumerator RetryBind(Vector2Int[] cells, ulong netId, MapLayerType layer)
+    private System.Collections.IEnumerator RetryBind(Vector2Int tile, Vector2Int[] subtiles, ulong netId, MapLayerType layer)
     {
         for (int i = 0; i < 10; i++)
         {
             yield return null;
             if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(netId, out var no))
             {
-                GetGraphics(layer).BindObject(new List<Vector2Int>(cells), no.gameObject, null);
+                GetGraphics(layer).BindObject(tile,new List<Vector2Int>(subtiles), no.gameObject, null);
 
                 yield break;
             }
@@ -413,7 +427,7 @@ public class WorldMapManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void SpawnNetlessClientRpc(MapLayerType layer, string itemId, Vector2Int anchor, Vector2Int[] cells, Vector3 pos, string id, ClientRpcParams rpcParams = default)
+    private void SpawnNetlessClientRpc(MapLayerType layer, string itemId, Vector2Int anchor, Vector2Int[] subtiles, Vector3 pos, string id, ClientRpcParams rpcParams = default)
     {
         var prefab = blockLibrary.GetMapBlockData(itemId)?.gameObject;
         if (!prefab) { Debug.LogError($"[SpawnNetless] нет префаба {itemId}"); return; }
@@ -421,9 +435,9 @@ public class WorldMapManager : NetworkBehaviour
         var go = Instantiate(prefab, pos, Quaternion.identity);
 
         //Testing:
-        onObjectInstantiated?.Invoke(go, anchor, itemId, id);
+        //onObjectInstantiated?.Invoke(go, anchor, itemId, id);
 
-        GetGraphics(layer).BindObject(new List<Vector2Int>(cells), go, id);
+        GetGraphics(layer).BindObject(anchor, new List<Vector2Int>(subtiles), go, id);
     }
 
     [ClientRpc]
@@ -433,9 +447,9 @@ public class WorldMapManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void UnbindByCellsClientRpc(Vector2Int[] cells, MapLayerType layer, bool destroyNonNetworked, ClientRpcParams rpcParams = default)
+    private void UnbindByCellsClientRpc(Vector2Int anchor,Vector2Int[] cells, MapLayerType layer, bool destroyNonNetworked, ClientRpcParams rpcParams = default)
     {
-        GetGraphics(layer).UnbindByCells(new List<Vector2Int>(cells), destroyNonNetworked);
+        GetGraphics(layer).UnbindByCells(anchor,new List<Vector2Int>(cells), destroyNonNetworked);
     }
 
     // ============ Снапшот нетворк-лесс для поздних клиентов ============
@@ -480,7 +494,7 @@ public class WorldMapManager : NetworkBehaviour
         _ => baseLayerGraphics
     };
 
-    private MapLayerType DetectLayerByCell(Vector2Int pos)
+    private MapLayerType DetectLayerByCell(Vector2 pos)
     {
         MapLayerLogic layer = null;
         MapLayerType layerType = MapLayerType.backGround;

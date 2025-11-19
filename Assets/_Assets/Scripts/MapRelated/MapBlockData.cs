@@ -24,8 +24,10 @@ public class MapBlockData : ItemData
     [ShowIf("breakable")]
     public int maxHealth;
 
-    [ShowIf("isMultiblock")]
-    public List<Vector2Int> tileOffsets = new List<Vector2Int>();
+    [ShowIf("isMultiblock && mapBlockType", MapBlockType.GameObject)]
+    public Vector2Int blockSize = new Vector2Int();
+    [ShowIf("mapBlockType", MapBlockType.Tile)]
+    public List<Vector2Int> tileOffsets;
 
     [FoldoutGroup("Settings")] public bool hasLoot;
     [FoldoutGroup("Loot")][ShowIf("hasLoot")] [SerializeField] bool dropSelf;

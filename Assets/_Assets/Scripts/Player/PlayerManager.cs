@@ -45,16 +45,13 @@ public class PlayerManager : NetworkBehaviour
 
         playerInputManager.onMouseLeftPress += (x) =>
         {
-            Vector2Int vector2Int = new Vector2Int();
-
-            vector2Int.x = x.x < 0 ? -Mathf.CeilToInt(Mathf.Abs(x.x)) : (int)x.x;
-            vector2Int.y = x.y < 0 ? -Mathf.CeilToInt(Mathf.Abs(x.y)) : (int)x.y;
+            Vector2Int vector2Int = UtillityMath.VectorToVectorInt(x);
 
             if (itemHeld.itemData == null) return;
 
-            if (WorldMapManager.Instance.CheckIfPlacementIsPossible(vector2Int, itemHeld.itemData.GetItemID()))
+            if (WorldMapManager.Instance.CheckIfPlacementIsPossible(x, itemHeld.itemData.GetItemID()))
             {
-                WorldMapManager.Instance.SetTileRequestServerRpc(vector2Int, itemHeld.itemData.GetItemID());
+                WorldMapManager.Instance.SetTileRequestServerRpc(x, itemHeld.itemData.GetItemID());
                 inventory.RemoveItem(itemHeld.itemData, 1);
             }
         };
@@ -65,7 +62,7 @@ public class PlayerManager : NetworkBehaviour
             vector2Int.x = x.x < 0 ? -Mathf.CeilToInt(Mathf.Abs(x.x)) : (int)x.x;
             vector2Int.y = x.y < 0 ? -Mathf.CeilToInt(Mathf.Abs(x.y)) : (int)x.y;
 
-            WorldMapManager.Instance.DamageTileRequestServerRpc(vector2Int, damage);
+            WorldMapManager.Instance.DamageTileRequestServerRpc(x, damage);
 
         };
         playerInputManager.onInteractPress += () =>

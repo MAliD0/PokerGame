@@ -23,13 +23,14 @@ public class LootSpawnerManager : NetworkBehaviour
     /// <summary>
     /// Вызови это на СЕРВЕРЕ, когда блок/объект окончательно сломан.
     /// </summary>
-    public void SpawnLootForBlock(MapBlockData data, Vector2Int anchor, int? seed = null)
+    public void SpawnLootForBlock(MapBlockData data, Vector2 position, int? seed = null)
     {
         if (!IsServer) return;
         if (data == null || data.loot == null || data.loot.Count == 0) return;
 
-        var basePos = AnchorToWorld(anchor);
-        var rng = seed.HasValue ? new System.Random(seed.Value) : new System.Random(CombineHash(anchor, Time.frameCount));
+        //var basePos = AnchorToWorld(anchor);
+        var basePos = (Vector3)position;
+        var rng = seed.HasValue ? new System.Random(seed.Value) : new System.Random(CombineHash(position, Time.frameCount));
 
         foreach (var rule in data.loot)
         {
@@ -79,8 +80,14 @@ public class LootSpawnerManager : NetworkBehaviour
     private static Vector3 AnchorToWorld(Vector2Int anchor) =>
         new Vector3(anchor.x + 0.5f, anchor.y + 0.5f, 0f);
 
-    private static int CombineHash(Vector2Int a, int b)
+    private static int CombineHash(Vector2 a, int b)
     {
-        unchecked { return (a.x * 73856093) ^ (a.y * 19349663) ^ (b * 83492791); }
+        unchecked
+        {
+            int hx = a.x.GetHashCode();
+            int hy = a.y.GetHashCode();
+            return (hx * 73856093) ^ (hy * 19349663) ^ (b * 83492791);
+        }
     }
+
 }

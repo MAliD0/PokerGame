@@ -29,7 +29,9 @@ public class MapSnapshotSync : NetworkBehaviour
     {
         public MapLayerType layer;
         public string itemId; // MapBlockData.GetItemID()
-        public V2I anchor;    // якорь мульти-группы (для single = сама клетка)
+        public V2I anchor;    // integer tileIndex anchor (existing)
+        public V2I localAnchor; // optional: subtile anchor inside that tileIndex
+        public Vector3 pos;     // optional: precise world position for the anchor subtile
         public int hp;
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
@@ -37,6 +39,7 @@ public class MapSnapshotSync : NetworkBehaviour
             s.SerializeValue(ref layer);
             s.SerializeValue(ref itemId);
             s.SerializeValue(ref anchor);
+            s.SerializeValue(ref localAnchor);
             s.SerializeValue(ref hp);
         }
     }
@@ -46,15 +49,17 @@ public class MapSnapshotSync : NetworkBehaviour
     {
         public MapLayerType layer;
         public string itemId;
-        public V2I anchor;
+        public V2I anchor;       // tileIndex anchor
+        public V2I localAnchor;  // new: subtile local anchor inside the tileIndex
         public Vector3 pos;
-        public string id; // стабильный id сервера
+        public string id; // stable server id
 
         public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
         {
             s.SerializeValue(ref layer);
             s.SerializeValue(ref itemId);
             s.SerializeValue(ref anchor);
+            s.SerializeValue(ref localAnchor);
             s.SerializeValue(ref pos);
             s.SerializeValue(ref id);
         }
@@ -134,16 +139,16 @@ public class MapSnapshotSync : NetworkBehaviour
                     var tile = logic.GetMapTile(anchor);
                     if (tile?.BlockData == null) continue;
 
-                    Vector2Int[] cells;
-                    if (tile.BlockData.isMultiblock)
-                    {
-                        var offs = tile.BlockData.tileOffsets;
-                        cells = new Vector2Int[offs.Count-1];
-                        for (int i = 0; i < offs.Count - 1; i++) cells[i] = anchor + offs[i];
-                    }
-                    else cells = new[] { anchor };
+                    //Vector2Int[] cells;
+                    //if (tileIndex.BlockData.isMultiblock)
+                    //{
+                    //    var offs = tileIndex.BlockData.tileOffsets;
+                    //    cells = new Vector2Int[offs.Count-1];
+                    //    for (int i = 0; i < offs.Count - 1; i++) cells[i] = anchor + offs[i];
+                    //}
+                    //else cells = new[] { anchor };
 
-                    BindObjectByNetIdClientRpc(ToV2IArray(cells), netId, layer, target);
+                    //BindObjectByNetIdClientRpc(ToV2IArray(cells), netId, layer, target);
 
                     if (++sent % 200 == 0) yield return null; // не душим транспорт
                 }
@@ -160,15 +165,20 @@ public class MapSnapshotSync : NetworkBehaviour
         {
             if (logic == null) return;
             var seen = new HashSet<Vector2Int>();
-            foreach (var kv in logic.LayerTiles)
+            foreach (Vector2Int tileIndex in logic.LayerTiles.Keys)
             {
-                var tile = kv.Value;
-                var anchor = tile.Anchor;
-                
-                if (!seen.Add(anchor)) continue; // один раз на мульти-группу
+                foreach (var subtile in logic.LayerTiles[tileIndex].Values)
+                {
+                    var blockData = subtile.BlockData;
+                    var anchor = subtile.Anchor;
+                    var localAnchor = subtile.Position;
 
-                int hp = tile.BlockData.breakable ? logic.GetHealth(anchor) : 0; 
-                result.Add(new TileSnapshotEntry { layer = t, itemId = tile.BlockData.GetItemID(), anchor = anchor, hp= hp});
+                    if (!seen.Add(anchor)) continue; // один раз на мульти-группу
+
+                    int hp = blockData.breakable ? logic.GetHealth(anchor, localAnchor) : 0;
+                    result.Add(new TileSnapshotEntry { layer = t, itemId = blockData.GetItemID(), anchor = anchor, localAnchor = localAnchor,hp = hp });
+
+                }
             }
         }
 
@@ -218,11 +228,11 @@ public class MapSnapshotSync : NetworkBehaviour
             if (layer == null || data == null) continue;
 
             // идемпотентность
-            if (!layer.IsTilePresented(e.anchor))
-                layer.PlaceBlock(e.anchor, data);
+            if (!layer.IsTilePresented(e.anchor.ToVector2Int()))
+                layer.PlaceBlock(e.anchor.ToVector2Int(), data);
 
             if (data.breakable)
-                layer.SetHealth(e.anchor, data, e.hp, true);
+                layer.SetHealth(e.anchor, e.localAnchor,data, e.hp, true);
         }
     }
 
@@ -239,11 +249,12 @@ public class MapSnapshotSync : NetworkBehaviour
             var go = Instantiate(data.gameObject, e.pos, Quaternion.identity);
 
             // восстановим клетки группы (anchor + offsets)
-            var cells = new List<Vector2Int>();
-            if (data.isMultiblock) foreach (var off in data.tileOffsets) cells.Add(e.anchor + off);
-            else cells.Add(e.anchor);
+            
+            //var cells = new List<Vector2Int>();
+            //if (data.isMultiblock) foreach (var off in data.tileOffsets) cells.Add(e.anchor + off);
+            //else cells.Add(e.anchor);
 
-            world.GetGraphics(e.layer).BindObject(cells, go, e.id);
+            //world.GetGraphics(e.layer).BindObject(cells, go, e.id);
         }
     }
 
@@ -259,7 +270,7 @@ public class MapSnapshotSync : NetworkBehaviour
 
         var cells = new List<Vector2Int>(cellsV2I.Length);
         foreach (var c in cellsV2I) cells.Add(c);
-        world.GetGraphics(layer).BindObject(cells, no.gameObject, null);
+        //world.GetGraphics(layer).BindObject(cells, no.gameObject, null);
     }
 
     private IEnumerator RetryBind(V2I[] cellsV2I, ulong netId, MapLayerType layer)
@@ -272,7 +283,7 @@ public class MapSnapshotSync : NetworkBehaviour
             {
                 var cells = new List<Vector2Int>(cellsV2I.Length);
                 foreach (var c in cellsV2I) cells.Add(c);
-                world.GetGraphics(layer).BindObject(cells, no.gameObject, null);
+                //world.GetGraphics(layer).BindObject(cells, no.gameObject, null);
                 yield break;
             }
         }
