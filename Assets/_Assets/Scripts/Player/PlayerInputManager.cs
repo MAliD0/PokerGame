@@ -37,14 +37,14 @@ public class PlayerInputManager : MonoBehaviour
         if (IsPointerOverUIElement(GetEventSystemRaycastResults())) return;
         Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         onMouseRightPress?.Invoke(mousePos);
-        Debug.Log("MousePos R:" + mousePos.x + "; " + mousePos.y + " | " + (int)mousePos.x + "; " + (int)mousePos.y);
+        Debug.Log("MousePos R:" + mousePos.x + "; " + mousePos.y + " | " + UtillityMath.VectorToVectorInt(mousePos).x + "; " + UtillityMath.VectorToVectorInt(mousePos).y);
     }
     private void SetLeftClick(InputAction.CallbackContext ctx)
     {
         if (IsPointerOverUIElement(GetEventSystemRaycastResults())) return;
         Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         onMouseLeftPress?.Invoke(mousePos);
-        Debug.Log("MousePos A:" + mousePos.x + "; " + mousePos.y + " | " + (int)mousePos.x + "; " + (int)mousePos.y);
+        Debug.Log("MousePos A:" + mousePos.x + "; " + mousePos.y + " | " + UtillityMath.VectorToVectorInt(mousePos).x + "; " + UtillityMath.VectorToVectorInt(mousePos).y);
     }
     private void SetMove(InputAction.CallbackContext ctx)
     {

@@ -318,7 +318,7 @@ public class WorldMapManager : NetworkBehaviour
             };
 
             //// Рассылаем спавн всем
-            SpawnNetlessClientRpc(layer, data.GetItemID(), anchor, cells[occupiedTile].ToArray(), worldPos, id);
+            SpawnNetlessClientRpc(layer, data.GetItemID(), anchor, cells[anchor].ToArray(), worldPos, id);
         }
         
     }
@@ -333,7 +333,7 @@ public class WorldMapManager : NetworkBehaviour
         // 1) Пытаемся удалить сетевой GO
         if (_anchorToNetId.TryGetValue(layer, out var dictNet) && dictNet.TryGetValue(anchor, out var netId))
         {
-            if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(netId, out var no))
+            if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(netId[subtile], out var no))
                 no.Despawn(true);
 
             dictNet.Remove(anchor);
@@ -347,10 +347,10 @@ public class WorldMapManager : NetworkBehaviour
         if (_anchorToNetlessId.TryGetValue(layer, out var dict) && dict.TryGetValue(anchor, out var id))
         {
             dict.Remove(anchor);
-            _netlessRegistry.Remove(id);
+            _netlessRegistry.Remove(id[subtile]);
 
             // Клиенты сами найдут GO по id и уничтожат его
-            RemoveNetlessClientRpc(id, layer);
+            RemoveNetlessClientRpc(id[subtile], layer);
             return;
         }
 
@@ -507,8 +507,8 @@ public class WorldMapManager : NetworkBehaviour
         {
             foreach (var id in item.Value)
             {
-                if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(id.Value, out var no))
-                    no.Despawn(true);
+                //if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(id, out var no))
+                    //no.Despawn(true);
             }
         }
 
