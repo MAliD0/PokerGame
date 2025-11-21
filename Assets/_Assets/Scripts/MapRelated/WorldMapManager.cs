@@ -43,12 +43,12 @@ public class WorldMapManager : NetworkBehaviour
     // ---------- Серверные реестры ----------
     // Для сетевых GO: anchor -> netId
     [FoldoutGroup("Server References")]
-    [SerializeField] public SerializedDictionary<MapLayerType, SerializedDictionary<Vector2Int, ulong>> _anchorToNetId = new SerializedDictionary<MapLayerType, SerializedDictionary<Vector2Int, ulong>>();
+    [SerializeField] public SerializedDictionary<MapLayerType, SerializedDictionary<Vector2Int, SerializedDictionary<Vector2Int, ulong>>> _anchorToNetId = new SerializedDictionary<MapLayerType, SerializedDictionary<Vector2Int, SerializedDictionary<Vector2Int, ulong>>>();
 
     // Для не-сетевых GO: anchor -> id, и полный id -> запись
     [FoldoutGroup("Server References")]
     [SerializeField]
-    SerializedDictionary<MapLayerType, SerializedDictionary<Vector2Int, string>> _anchorToNetlessId = new SerializedDictionary<MapLayerType, SerializedDictionary<Vector2Int, string>>();
+    SerializedDictionary<MapLayerType, SerializedDictionary<Vector2Int, SerializedDictionary<Vector2Int, string>>> _anchorToNetlessId = new SerializedDictionary<MapLayerType, SerializedDictionary<Vector2Int, SerializedDictionary<Vector2Int, string>>>();
 
     [FoldoutGroup("Server References")]
     [SerializeField] SerializedDictionary<string, NetlessEntry> _netlessRegistry = new SerializedDictionary<string, NetlessEntry>();
@@ -85,8 +85,8 @@ public class WorldMapManager : NetworkBehaviour
         waterLayerGraphics.Init(waterLayer);
 
         _netlessRegistry = new SerializedDictionary<string, NetlessEntry>();
-        _anchorToNetId = new SerializedDictionary<MapLayerType, SerializedDictionary<Vector2Int, ulong>>(); 
-
+        _anchorToNetId = new SerializedDictionary<MapLayerType, SerializedDictionary<Vector2Int, SerializedDictionary<Vector2Int, ulong>>>(); 
+            
 
         ConnectionManager.instance.onServerActivate += (x) =>
         {
@@ -119,7 +119,6 @@ public class WorldMapManager : NetworkBehaviour
         var targetLayer = GetLayer(data.mapLayerType);
         if (targetLayer == null) { Debug.LogError("[SetTile] targetLayer null"); return false; }
 
-        // Доп. правила (пример)
         if (data.mapLayerType == MapLayerType.foreGround)
         {
             if (!baseLayer.IsTilePresented(pos))
@@ -130,15 +129,7 @@ public class WorldMapManager : NetworkBehaviour
 
             if (data.isMultiblock)
             {
-                //foreach (var off in data.tileOffsets)
-                //{
-                //    var cell = pos + off;
-                //    if (!baseLayer.IsTilePresented(cell))
-                //    {
-                //        Debug.LogWarning($"[Rules] ForeGround без BackGround на {cell}");
-                //        return false;
-                //    }
-                //}
+                baseLayer.IsTilePresented(pos, data.blockSize.x, data.blockSize.y);
             }
         }
         if (data.mapLayerType == MapLayerType.waterGround && baseLayer.IsTilePresented(pos))
@@ -166,13 +157,13 @@ public class WorldMapManager : NetworkBehaviour
         if (data == null || !data.breakable) return;
 
         var anchor = tile.Anchor;
-        var subtileIndex = tile.Position;
+        var subtileIndex = tile.SubtileAnchor;
 
         // 2) применим урон (серверная истина)
-        bool broken = layer.Damage(anchor, subtileIndex,data, Mathf.Max(1, amount));
+        bool broken = layer.Damage(anchor, subtileIndex, data, Mathf.Max(1, amount));
 
         // 3) оповестим клиентов об HP (чтобы у них сработал графический хендлер)
-        UpdateTileHealthClientRpc(layerType, anchor, subtileIndex,layer.GetHealth(anchor, subtileIndex), data.maxHealth);
+        UpdateTileHealthClientRpc(layerType, anchor, subtileIndex,layer.GetHealth(tile.Anchor, subtileIndex), data.maxHealth);
 
         // 4) если сломали — дроп и удаление
         if (broken)
@@ -267,7 +258,6 @@ public class WorldMapManager : NetworkBehaviour
     }
 
     // ============ Коллбеки сервера на изменения данных ============
-
     private void OnServer_TilePlaced(MapLayerType layer, Dictionary<Vector2Int ,HashSet<Vector2Int>> cells, MapBlockData data)
     {
         if (data.mapBlockType != MapBlockType.GameObject) return;
@@ -281,54 +271,56 @@ public class WorldMapManager : NetworkBehaviour
 
         Vector2 worldPos = layerLogic.SubtileToWorldPosition(occupiedTiles[0], anchorSubTile);
 
-        foreach (Vector2Int occupiedTile in occupiedTiles)
+        
+        //this line is under the question
+        //var worldPos = new Vector3(occupiedTile.x + 0.5f, occupiedTile.y + 0.5f, 0f);
+
+        var prefab = blockLibrary.GetMapBlockData(data.GetItemID())?.gameObject;
+
+        if (!prefab)
         {
-            //this line is under the question
-            //var worldPos = new Vector3(occupiedTile.x + 0.5f, occupiedTile.y + 0.5f, 0f);
+            Debug.LogError($"[TilePlaced] Prefab id={data.GetItemID()} не найден");
+            return;
+        }
 
-            var prefab = blockLibrary.GetMapBlockData(data.GetItemID())?.gameObject;
+        if (prefab.TryGetComponent<NetworkObject>(out _))
+        {
+            // СЕТЕВОЙ GO
+            var go = Instantiate(prefab, worldPos, Quaternion.identity);
+            var no = go.GetComponent<NetworkObject>();
+            no.Spawn();
 
-            if (!prefab)
+            // реестр
+            if (!_anchorToNetId.TryGetValue(layer, out var dictNet)) _anchorToNetId[layer] = dictNet = new();
+            dictNet[anchor][anchorSubTile] = no.NetworkObjectId;
+
+            // Биндинг на клиентах по netId (чтобы графика знала cell->GO)
+            foreach(var cell in occupiedTiles)
             {
-                Debug.LogError($"[TilePlaced] Prefab id={data.GetItemID()} не найден");
-                return;
-            }
-
-            if (prefab.TryGetComponent<NetworkObject>(out _))
-            {
-                // СЕТЕВОЙ GO
-                var go = Instantiate(prefab, worldPos, Quaternion.identity);
-                var no = go.GetComponent<NetworkObject>();
-                no.Spawn();
-
-                // реестр
-                if (!_anchorToNetId.TryGetValue(layer, out var dictNet)) _anchorToNetId[layer] = dictNet = new();
-                dictNet[occupiedTile] = no.NetworkObjectId;
-
-                // Биндинг на клиентах по netId (чтобы графика знала cell->GO)
-                BindObjectByNetIdClientRpc(anchor,cells[occupiedTile].ToArray(), no.NetworkObjectId, layer);
-            }
-            else
-            {
-                // НЕ-СЕТЕВОЙ GO (гибрид)
-                var id = NewId();
-
-                if (!_anchorToNetlessId.TryGetValue(layer, out var dict)) _anchorToNetlessId[layer] = dict = new();
-                dict[occupiedTile] = id;
-
-                _netlessRegistry[id] = new NetlessEntry
-                {
-                    layer = layer,
-                    anchor = occupiedTile,
-                    cells = cells[occupiedTile].ToArray(),
-                    itemId = data.GetItemID(),
-                    pos = worldPos
-                };
-
-                //// Рассылаем спавн всем
-                SpawnNetlessClientRpc(layer, data.GetItemID(), occupiedTile, cells[occupiedTile].ToArray(), worldPos, id);
+                BindObjectByNetIdClientRpc(cell, cells[cell].ToArray(), no.NetworkObjectId, layer);
             }
         }
+        else
+        {
+            // НЕ-СЕТЕВОЙ GO (гибрид)
+            var id = NewId();
+
+            if (!_anchorToNetlessId.TryGetValue(layer, out var dict)) _anchorToNetlessId[layer] = dict = new();
+            dict[anchor][anchorSubTile] = id;
+
+            _netlessRegistry[id] = new NetlessEntry
+            {
+                layer = layer,
+                anchor = anchor,
+                cells = occupiedTiles.ToArray(),
+                itemId = data.GetItemID(),
+                pos = worldPos
+            };
+
+            //// Рассылаем спавн всем
+            SpawnNetlessClientRpc(layer, data.GetItemID(), anchor, cells[occupiedTile].ToArray(), worldPos, id);
+        }
+        
     }
 
     private void OnServer_TileRemoved(MapLayerType layer,Dictionary<Vector2Int,HashSet<Vector2Int>>cells, MapBlockType type)
@@ -465,7 +457,7 @@ public class WorldMapManager : NetworkBehaviour
         foreach (var kv in _netlessRegistry)
         {
             var e = kv.Value;
-            SpawnNetlessClientRpc(e.layer, e.itemId, e.anchor, e.cells, e.pos, kv.Key, target);
+            SpawnNetlessClientRpc(e.layer, e.itemId, e.anchor, e.cells, e.pos, kv.Key, ConnectionManager.instance.SendAllExceptHost());
         }
 
         // Актуализируем тайлы: пробежать все слои и переслать, если требуется.

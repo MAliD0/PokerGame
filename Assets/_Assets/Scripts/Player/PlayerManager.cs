@@ -51,8 +51,11 @@ public class PlayerManager : NetworkBehaviour
 
             if (WorldMapManager.Instance.CheckIfPlacementIsPossible(x, itemHeld.itemData.GetItemID()))
             {
-                WorldMapManager.Instance.SetTileRequestServerRpc(x, itemHeld.itemData.GetItemID());
-                inventory.RemoveItem(itemHeld.itemData, 1);
+                if(WorldMapManager.Instance.CheckIfPlacementIsPossible(x, itemHeld.itemData.GetItemID()))
+                {
+                    WorldMapManager.Instance.SetTileRequestServerRpc(x, itemHeld.itemData.GetItemID());
+                    inventory.RemoveItem(itemHeld.itemData, 1);
+                }
             }
         };
         playerInputManager.onMouseRightPress += (x) => 
