@@ -60,13 +60,7 @@ public class PlayerManager : NetworkBehaviour
         };
         playerInputManager.onMouseRightPress += (x) => 
         {
-            Vector2Int vector2Int = new Vector2Int();
-
-            vector2Int.x = x.x < 0 ? -Mathf.CeilToInt(Mathf.Abs(x.x)) : (int)x.x;
-            vector2Int.y = x.y < 0 ? -Mathf.CeilToInt(Mathf.Abs(x.y)) : (int)x.y;
-
             WorldMapManager.Instance.DamageTileRequestServerRpc(x, damage);
-
         };
         playerInputManager.onInteractPress += () =>
         {

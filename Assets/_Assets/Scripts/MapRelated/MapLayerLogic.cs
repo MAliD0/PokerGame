@@ -289,7 +289,7 @@ public class MapLayerLogic
 
             if (data.mapBlockType == MapBlockType.Tile)
             {
-                if (IsFootprintOccupied(clickWorld, sizeX, sizeY, anchorIsTopLeft: false))
+                if (LayerTiles.ContainsKey(tile))
                     return false;
             }
             else

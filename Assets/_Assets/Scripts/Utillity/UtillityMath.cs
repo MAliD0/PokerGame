@@ -6,8 +6,8 @@ public static class UtillityMath {
     {
         Vector2Int vector2Int = new Vector2Int();
 
-        vector2Int.x = vector2.x < 0 ? -Mathf.CeilToInt(Mathf.Abs(vector2.x)) : (int)Math.Ceiling(vector2.x);
-        vector2Int.y = vector2.y < 0 ? -Mathf.CeilToInt(Mathf.Abs(vector2.y)) : (int)Math.Ceiling(vector2.y);
+        vector2Int.x = vector2.x < 0 ? -Mathf.CeilToInt(Mathf.Abs(vector2.x)) : (int)vector2.x;
+        vector2Int.y = vector2.y < 0 ? -Mathf.CeilToInt(Mathf.Abs(vector2.y)) : (int)vector2.y;
 
         return vector2Int;
     }
