@@ -63,6 +63,7 @@ public class WorldMapManager : NetworkBehaviour
         public MapLayerType layer;
         public Vector2Int anchor;       // tile cell anchor (kept for lookup / dict keys)
         public Vector2Int localAnchor;  // subtileIndex anchor inside the tile (0..SubtilesPerCell-1)
+        public Vector2Int[] cells;
         public string itemId;
         public Vector3 pos;
     }
@@ -324,7 +325,7 @@ public class WorldMapManager : NetworkBehaviour
             foreach (var cell in occupiedTiles)
             {
                 //// Рассылаем спавн всем
-                SpawnNetlessClientRpc(layer, data.GetItemID(), anchor, cells[anchor].ToArray(), worldPos, id);
+                SpawnNetlessClientRpc(layer, data.GetItemID(), cell, cells[anchor].ToArray(), worldPos, id);
             }
         }
         
