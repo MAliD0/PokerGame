@@ -170,7 +170,7 @@ public class MapSnapshotSync : NetworkBehaviour
                 foreach (var subtile in logic.LayerTiles[tileIndex].Values)
                 {
                     var blockData = subtile.BlockData;
-                    var anchor = subtile.Anchor;
+                    var anchor = subtile.ParentTile;
                     var localAnchor = subtile.Position;
 
                     if (!seen.Add(anchor)) continue; // один раз на мульти-группу

@@ -343,7 +343,7 @@ public class MapLayerLogic
                     {
                         var local = new Vector2Int(lx, ly);
                         if (LayerTiles[cell].ContainsKey(local)) continue;
-                        LayerTiles[cell].Add(local, new MapTile(local, data, cell, subTile));//for tile subtileAnchor is always 0,0
+                        LayerTiles[cell].Add(local, new MapTile(local, data, cell, subTile, anchor));//for tile subtileAnchor is always 0,0
                             set.Add(local);
                     }
                     group[cell] = set;
@@ -362,7 +362,7 @@ public class MapLayerLogic
                     foreach (Vector2Int tileCell in group[tile])
                     {
                         if (LayerTiles[tile].ContainsKey(tileCell)) continue;
-                        LayerTiles[tile].Add(tileCell, new MapTile(tileCell, data, tile, subtileIndex));
+                        LayerTiles[tile].Add(tileCell, new MapTile(tileCell, data, tile, subtileIndex, anchor));
                     }
                 }
             break;

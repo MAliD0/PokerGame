@@ -5,6 +5,7 @@ using System;
 using Unity.Netcode;
 using Sirenix.OdinInspector;
 using AYellowpaper.SerializedCollections;
+using System.Linq;
 
 /// <summary>
 /// Только визуал: ставим тайлы, держим локальные кэши клетка→GO и id→GO (для не-сетевых).
@@ -66,14 +67,23 @@ public class MapLayerGraphics : NetworkBehaviour
             CellToGO[anchor].Add(cell, go);
     }
 
-    public void UnbindByCells(Vector2Int anchor, List<Vector2Int> cells, bool destroyNonNetworked = false)
+    public void UnbindByCells(DictEntry[] cells, bool destroyNonNetworked = false)
     {
         GameObject any = null;
-        foreach (var c in cells)
+        var tiles = DictEntry.DictEntryToDictionary(cells.ToList());
+
+        foreach (var c in tiles.Keys)
         {
-            if (CellToGO.TryGetValue(c, out var go))
+            if (CellToGO.TryGetValue(c, out var subtilesWithGO))
             {
-                //any = go;
+                foreach(var subtile in subtilesWithGO.Keys)
+                {
+                    CellToGO[c].Remove(subtile);        
+                    any = CellToGO[c][subtile];
+                }
+            }
+            if(CellToGO[c].Count == 0)
+            {
                 CellToGO.Remove(c);
             }
         }
@@ -87,13 +97,35 @@ public class MapLayerGraphics : NetworkBehaviour
         if (!_netlessById.TryGetValue(netlessId, out var go) || go == null)
             return;
 
-        // вычищаем все клетки, где этот GO привязан
-        var toRemove = new List<Vector2Int>();
-        foreach (var kv in CellToGO)
-            //if (kv.Value == go) toRemove.Add(kv.Key);
+            // временный список для ключей, где нужно будет удалить
+            List<Vector2Int> outerKeysToClear = new List<Vector2Int>();
 
-        foreach (var c in toRemove) CellToGO.Remove(c);
+            foreach (var outer in CellToGO)
+            {
+                var inner = outer.Value;
 
+                // временный список ключей внутреннего словаря на удаление
+                List<Vector2Int> innerKeysToRemove = new List<Vector2Int>();
+
+                foreach (var kvp in inner)
+                {
+                    if (kvp.Value == go)
+                        innerKeysToRemove.Add(kvp.Key);
+                }
+
+                // удаляем найденные ключи внутреннего словаря
+                foreach (var key in innerKeysToRemove)
+                    inner.Remove(key);
+
+                // если внутренний словарь теперь пуст — можно удалить верхний ключ
+                if (inner.Count == 0)
+                    outerKeysToClear.Add(outer.Key);
+            }
+
+            // удаляем пустые внешние пары
+            foreach (var key in outerKeysToClear)
+                CellToGO.Remove(key);
+                        
         _netlessById.Remove(netlessId);
         Destroy(go);
     }

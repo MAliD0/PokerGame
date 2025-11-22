@@ -63,7 +63,7 @@ public class WorldMapManager : NetworkBehaviour
         public MapLayerType layer;
         public Vector2Int anchor;       // tile cell anchor (kept for lookup / dict keys)
         public Vector2Int localAnchor;  // subtileIndex anchor inside the tile (0..SubtilesPerCell-1)
-        public Vector2Int[] cells;
+        public List<DictEntry> occupiedTiles;
         public string itemId;
         public Vector3 pos;
     }
@@ -156,14 +156,14 @@ public class WorldMapManager : NetworkBehaviour
         var data = tile?.BlockData;
         if (data == null || !data.breakable) return;
 
-        var anchor = tile.Anchor;
+        var anchor = tile.TileAnchor;
         var subtileIndex = tile.SubtileAnchor;
 
         // 2) применим урон (серверная истина)
         bool broken = layer.Damage(anchor, subtileIndex, data, Mathf.Max(1, amount));
 
         // 3) оповестим клиентов об HP (чтобы у них сработал графический хендлер)
-        UpdateTileHealthClientRpc(layerType, anchor, subtileIndex,layer.GetHealth(tile.Anchor, subtileIndex), data.maxHealth);
+        UpdateTileHealthClientRpc(layerType, anchor, subtileIndex,layer.GetHealth(tile.ParentTile, subtileIndex), data.maxHealth);
 
         // 4) если сломали — дроп и удаление
         if (broken)
@@ -295,10 +295,7 @@ public class WorldMapManager : NetworkBehaviour
             dictNet[anchor][anchorSubTile] = no.NetworkObjectId;
 
             // Биндинг на клиентах по netId (чтобы графика знала cell->GO)
-            foreach(var cell in occupiedTiles)
-            {
-                BindObjectByNetIdClientRpc(cell, cells[cell].ToArray(), no.NetworkObjectId, layer);
-            }
+            BindObjectByNetIdClientRpc(DictEntry.SerializeDictionary(cells).ToArray(), no.NetworkObjectId, layer);
         }
         else
         {
@@ -318,15 +315,12 @@ public class WorldMapManager : NetworkBehaviour
                 layer = layer,
                 anchor = anchor,
                 localAnchor = anchorSubTile,
+                occupiedTiles = DictEntry.SerializeDictionary(cells),
                 itemId = data.GetItemID(),
                 pos = worldPos
             };
             
-            foreach (var cell in occupiedTiles)
-            {
-                //// Рассылаем спавн всем
-                SpawnNetlessClientRpc(layer, data.GetItemID(), cell, cells[anchor].ToArray(), worldPos, id);
-            }
+            SpawnNetlessClientRpc(layer, data.GetItemID(), DictEntry.SerializeDictionary(cells).ToArray(), worldPos, id);
         }
         
     }
@@ -347,10 +341,9 @@ public class WorldMapManager : NetworkBehaviour
             dictNet.Remove(anchor);
 
             // отвязываем cell->GO на клиентах (без уничтожения — объект уже деспавнен)
-            foreach(var cell in cells.Keys)
-            {
-                BindObjectByNetIdClientRpc(cell, cells[cell].ToArray(), 0, layer, ConnectionManager.instance.SendAllExceptHost()); // 0 = unbind
-            }
+            
+            BindObjectByNetIdClientRpc(DictEntry.SerializeDictionary(cells).ToArray(), 0, layer, ConnectionManager.instance.SendAllExceptHost()); // 0 = unbind
+
             return;
         }
 
@@ -366,8 +359,7 @@ public class WorldMapManager : NetworkBehaviour
         }
 
         // Fallback: просто отвязать на клиентах (если где-то несостыковка)
-        foreach(var cell in cells.Keys)
-            UnbindByCellsClientRpc(cell, cells[cell].ToArray(), layer, destroyNonNetworked: true);
+        UnbindByCellsClientRpc(DictEntry.SerializeDictionary(cells).ToArray(), layer, destroyNonNetworked: true);
     }
 
     // ============ Клиентские RPC (все клиенты или таргет) ============
@@ -404,15 +396,25 @@ public class WorldMapManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void BindObjectByNetIdClientRpc(Vector2Int tile,Vector2Int[] subtiles, ulong netId, MapLayerType layer, ClientRpcParams rpcParams = default)
+    private void BindObjectByNetIdClientRpc(DictEntry[] serializedTiles, ulong netId, MapLayerType layer, ClientRpcParams rpcParams = default)
     {
+        Dictionary<Vector2Int, HashSet<Vector2Int>> tiles = DictEntry.DictEntryToDictionary(serializedTiles.ToList());
+
         if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(netId, out var no))
         {
-            // На крайне редких лагах — попробуем пару кадров подождать
-            StartCoroutine(RetryBind(tile,subtiles, netId, layer));
+            foreach (Vector2Int anchor in tiles.Keys)
+            {
+                // На крайне редких лагах — попробуем пару кадров подождать
+                StartCoroutine(RetryBind(anchor,tiles[anchor].ToArray(), netId, layer));
+
+            }
             return;
         }
-        GetGraphics(layer).BindObject(tile, new List<Vector2Int>(subtiles), no.gameObject, null);
+        
+        foreach(Vector2Int anchor in tiles.Keys)
+        {
+            GetGraphics(layer).BindObject(anchor, tiles[anchor].ToList(), no.gameObject, null);    
+        }
     }
 
     private System.Collections.IEnumerator RetryBind(Vector2Int tile, Vector2Int[] subtiles, ulong netId, MapLayerType layer)
@@ -431,17 +433,20 @@ public class WorldMapManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void SpawnNetlessClientRpc(MapLayerType layer, string itemId, Vector2Int anchor, Vector2Int[] subtiles, Vector3 pos, string id, ClientRpcParams rpcParams = default)
+    private void SpawnNetlessClientRpc(MapLayerType layer, string itemId, DictEntry[] occupiedTiles, Vector3 pos, string id, ClientRpcParams rpcParams = default)
     {
         var prefab = blockLibrary.GetMapBlockData(itemId)?.gameObject;
         if (!prefab) { Debug.LogError($"[SpawnNetless] нет префаба {itemId}"); return; }
 
+        Dictionary<Vector2Int, HashSet<Vector2Int>> tiles = DictEntry.DictEntryToDictionary(occupiedTiles.ToList());
+
         var go = Instantiate(prefab, pos, Quaternion.identity);
 
-        //Testing:
         //onObjectInstantiated?.Invoke(go, anchor, itemId, id);
-
-        GetGraphics(layer).BindObject(anchor, new List<Vector2Int>(subtiles), go, id);
+        foreach(Vector2Int anchor in tiles.Keys)
+        {
+            GetGraphics(layer).BindObject(anchor, tiles[anchor].ToList(), go, id);
+        }
     }
 
     [ClientRpc]
@@ -451,9 +456,9 @@ public class WorldMapManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void UnbindByCellsClientRpc(Vector2Int anchor,Vector2Int[] cells, MapLayerType layer, bool destroyNonNetworked, ClientRpcParams rpcParams = default)
+    private void UnbindByCellsClientRpc(DictEntry[] cells, MapLayerType layer, bool destroyNonNetworked, ClientRpcParams rpcParams = default)
     {
-        GetGraphics(layer).UnbindByCells(anchor,new List<Vector2Int>(cells), destroyNonNetworked);
+        GetGraphics(layer).UnbindByCells(cells, destroyNonNetworked);
     }
 
     // ============ Снапшот нетворк-лесс для поздних клиентов ============
@@ -469,7 +474,7 @@ public class WorldMapManager : NetworkBehaviour
         foreach (var kv in _netlessRegistry)
         {
             var e = kv.Value;
-            SpawnNetlessClientRpc(e.layer, e.itemId, e.anchor, e.cells, e.pos, kv.Key, ConnectionManager.instance.SendAllExceptHost());
+            SpawnNetlessClientRpc(e.layer, e.itemId, e.occupiedTiles.ToArray(), e.pos, kv.Key, ConnectionManager.instance.SendAllExceptHost());
         }
 
         // Актуализируем тайлы: пробежать все слои и переслать, если требуется.
@@ -500,7 +505,6 @@ public class WorldMapManager : NetworkBehaviour
 
     private MapLayerType DetectLayerByCell(Vector2 pos)
     {
-        MapLayerLogic layer = null;
         MapLayerType layerType = MapLayerType.backGround;
 
         if (foreLayer.IsTilePresented(pos)) {  layerType = MapLayerType.foreGround; }

@@ -16,16 +16,20 @@ MonoBehaviour:
   itemType: 1
   isStackable: 1
   maxStack: 24
+  isCraftable: 0
+  recipeItems: []
+  craftAmount: 1
   mapBlockType: 1
   tile: {fileID: 0}
   gameObject: {fileID: 7337151912051207136, guid: 3a3127f43507ddf44a01f19dd5d518c9, type: 3}
-  mapLayerType: 3
-  isMultiblock: 0
+  mapLayerType: 1
+  isMultiblock: 1
   breakable: 1
   maxHealth: 5
+  blockSize: {x: 6, y: 6}
   tileOffsets: []
-  hasLoot: 0
-  dropSelf: 0
+  hasLoot: 1
+  dropSelf: 1
   loot:
   - item: {fileID: 11400000}
     chance: 100

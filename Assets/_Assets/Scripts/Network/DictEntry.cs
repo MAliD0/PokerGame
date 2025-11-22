@@ -6,20 +6,24 @@ using UnityEngine;
 [Serializable]
 public struct DictEntry : INetworkSerializable
 {
-    public Vector2Int Key;
-    public List<Vector2Int> Values; // HashSet → List
+    public V2I Key;
+    public List<V2I> Values; // HashSet → List
 
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
     {
+        // 1) Ключ
+        serializer.SerializeValue(ref Key);
+
+        // 2) Список значений
         int count = Values?.Count ?? 0;
         serializer.SerializeValue(ref count);
 
         if (serializer.IsReader)
-            Values = new List<Vector2Int>(count);
+            Values = new List<V2I>(count);
 
         for (int i = 0; i < count; i++)
         {
-            Vector2Int v = default;
+            V2I v = default;
 
             if (serializer.IsWriter)
                 v = Values[i];
@@ -31,29 +35,38 @@ public struct DictEntry : INetworkSerializable
         }
     }
 
-    public List<DictEntry> SerializeDictionary(Dictionary<Vector2Int, HashSet<Vector2Int>> dict)
+    public static List<DictEntry> SerializeDictionary(Dictionary<Vector2Int, HashSet<Vector2Int>> dict)
     {
         var list = new List<DictEntry>(dict.Count);
 
         foreach (var kvp in dict)
         {
-            list.Add(new DictEntry
+            var entry = new DictEntry
             {
                 Key = kvp.Key,
-                Values = new List<Vector2Int>(kvp.Value)
-            });
+                Values = new List<V2I>(kvp.Value.Count)
+            };
+
+            foreach (var v in kvp.Value)
+                entry.Values.Add(v);   // Vector2Int -> V2I (implicit)
+
+            list.Add(entry);
         }
 
         return list;
     }
-    public Dictionary<Vector2Int, HashSet<Vector2Int>> DictEntryToDictionary(List<DictEntry> list)
+    public static Dictionary<Vector2Int, HashSet<Vector2Int>> DictEntryToDictionary(List<DictEntry> list)
     {
-        Dictionary<Vector2Int, HashSet<Vector2Int>> result =
-            new Dictionary<Vector2Int, HashSet<Vector2Int>>(list.Count);
+        var result = new Dictionary<Vector2Int, HashSet<Vector2Int>>(list.Count);
 
         foreach (var entry in list)
         {
-            result[entry.Key] = new HashSet<Vector2Int>(entry.Values);
+            var set = new HashSet<Vector2Int>();
+
+            foreach (var v in entry.Values)
+                set.Add(v); // implicit V2I → Vector2Int
+
+            result[entry.Key] = set;
         }
 
         return result;
