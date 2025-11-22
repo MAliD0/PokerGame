@@ -63,7 +63,6 @@ public class WorldMapManager : NetworkBehaviour
         public MapLayerType layer;
         public Vector2Int anchor;       // tile cell anchor (kept for lookup / dict keys)
         public Vector2Int localAnchor;  // subtileIndex anchor inside the tile (0..SubtilesPerCell-1)
-        public Vector2Int[] cells;
         public string itemId;
         public Vector3 pos;
     }
@@ -306,19 +305,27 @@ public class WorldMapManager : NetworkBehaviour
             var id = NewId();
 
             if (!_anchorToNetlessId.TryGetValue(layer, out var dict)) _anchorToNetlessId[layer] = dict = new();
-            dict[anchor][anchorSubTile] = id;
 
+            if (!dict.TryGetValue(anchor, out var idDict))
+            {
+                dict[anchor] = idDict = new SerializedDictionary<Vector2Int, string>();
+            }
+            idDict.Add(anchorSubTile, id);
+            
             _netlessRegistry[id] = new NetlessEntry
             {
                 layer = layer,
                 anchor = anchor,
-                cells = occupiedTiles.ToArray(),
+                localAnchor = anchorSubTile,
                 itemId = data.GetItemID(),
                 pos = worldPos
             };
-
-            //// Рассылаем спавн всем
-            SpawnNetlessClientRpc(layer, data.GetItemID(), anchor, cells[anchor].ToArray(), worldPos, id);
+            
+            foreach (var cell in occupiedTiles)
+            {
+                //// Рассылаем спавн всем
+                SpawnNetlessClientRpc(layer, data.GetItemID(), anchor, cells[anchor].ToArray(), worldPos, id);
+            }
         }
         
     }
@@ -339,7 +346,10 @@ public class WorldMapManager : NetworkBehaviour
             dictNet.Remove(anchor);
 
             // отвязываем cell->GO на клиентах (без уничтожения — объект уже деспавнен)
-            UnbindByCellsClientRpc(anchor,cells[anchor].ToArray(), layer, destroyNonNetworked: false, ConnectionManager.instance.SendAllExceptHost());
+            foreach(var cell in cells.Keys)
+            {
+                BindObjectByNetIdClientRpc(cell, cells[cell].ToArray(), 0, layer, ConnectionManager.instance.SendAllExceptHost()); // 0 = unbind
+            }
             return;
         }
 
@@ -355,7 +365,8 @@ public class WorldMapManager : NetworkBehaviour
         }
 
         // Fallback: просто отвязать на клиентах (если где-то несостыковка)
-        UnbindByCellsClientRpc(anchor, cells[anchor].ToArray(), layer, destroyNonNetworked: true);
+        foreach(var cell in cells.Keys)
+            UnbindByCellsClientRpc(cell, cells[cell].ToArray(), layer, destroyNonNetworked: true);
     }
 
     // ============ Клиентские RPC (все клиенты или таргет) ============

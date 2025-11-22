@@ -493,6 +493,13 @@ public class MapLayerLogic
         anchorHp[anchor].Remove(subtile);
         anchorHp[anchor].Add(subtile, next);
 
+        if(anchorHp[anchor][subtile] <= 0)
+        {
+            anchorHp[anchor].Remove(subtile);
+            if (anchorHp[anchor].Count == 0)
+                anchorHp.Remove(anchor);
+        }
+
         onTileHealthChanged?.Invoke(anchor, subtile, data, next, maxHp);
         return next <= 0;
     }

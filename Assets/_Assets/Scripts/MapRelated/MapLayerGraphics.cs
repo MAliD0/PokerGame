@@ -10,6 +10,8 @@ using AYellowpaper.SerializedCollections;
 /// Только визуал: ставим тайлы, держим локальные кэши клетка→GO и id→GO (для не-сетевых).
 /// НИКАКОЙ сетевой логики здесь нет.
 /// </summary>
+
+[Serializable]
 public class MapLayerGraphics : NetworkBehaviour
 {
     private MapLayerLogic layerLogic;
