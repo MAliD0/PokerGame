@@ -101,17 +101,21 @@ public class MapLayerGraphics : NetworkBehaviour
     }
     public void UnbindByCells(Vector2Int anchor, Vector2Int[] subtiles, bool destroyNonNetworked = false)
     {
+        HashSet<Vector2Int> subtilesToRemove = new HashSet<Vector2Int>();
+
         if (CellToGO.TryGetValue(anchor, out var subtilesWithGO))
         {
             foreach(var subtile in subtilesWithGO.Keys)
             {
-                CellToGO[anchor].Remove(subtile);        
+                subtilesToRemove.Add(subtile);        
             }
 
+
+            foreach(var subtileToRemove in subtilesToRemove)
+                CellToGO[anchor].Remove(subtileToRemove);
+            
             if(CellToGO[anchor].Count == 0)
-            {
                 CellToGO.Remove(anchor);
-            }
         }
     }
 
@@ -120,21 +124,40 @@ public class MapLayerGraphics : NetworkBehaviour
         GameObject any = null;
         var tiles = DictEntry.DictEntryToDictionary(cells.ToList());
 
+        Dictionary<Vector2Int, HashSet<Vector2Int>> subtilesToRemove = new Dictionary<Vector2Int, HashSet<Vector2Int>>();
+        HashSet<Vector2Int> tilesToRemove = new HashSet<Vector2Int>();
+
         foreach (var c in tiles.Keys)
         {
             if (CellToGO.TryGetValue(c, out var subtilesWithGO))
             {
                 foreach(var subtile in subtilesWithGO.Keys)
                 {
-                    CellToGO[c].Remove(subtile);        
-                    any = CellToGO[c][subtile];
+                    if(CellToGO[c].TryGetValue(subtile, out GameObject go))
+                        any = go;
+
+                    if(!subtilesToRemove.TryGetValue(c, out var subtileList))
+                    {
+                        HashSet<Vector2Int> newSubtileList = new HashSet<Vector2Int>();
+                        newSubtileList.Add(subtile);
+                        subtilesToRemove.Add(c, newSubtileList);
+                    }
+                    else
+                        subtileList.Add(subtile);
                 }
             }
             if(CellToGO[c].Count == 0)
-            {
-                CellToGO.Remove(c);
-            }
+                tilesToRemove.Add(c);
         }
+
+        foreach(var tile in subtilesToRemove.Keys)
+        {
+            foreach(var subtile in subtilesToRemove[tile])
+                CellToGO.Remove(subtile);
+        }
+        foreach(var tile in tilesToRemove)
+            CellToGO.Remove(tile);
+
 
         if (destroyNonNetworked && any != null && !any.TryGetComponent<NetworkObject>(out _))
             Destroy(any);

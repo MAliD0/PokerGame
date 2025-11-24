@@ -18,13 +18,13 @@ public class MapBlockData : ItemData
 
     public MapLayerType mapLayerType;
 
-    [FoldoutGroup("Settings")]public bool isMultiblock;
+    [FoldoutGroup("Settings")]public bool isMultiblock = true;
     [FoldoutGroup("Settings")]public bool breakable;
     [FoldoutGroup("Settings")]
     [ShowIf("breakable")]
     public int maxHealth;
 
-    [ShowIf("isMultiblock && mapBlockType", MapBlockType.GameObject)]
+    [ShowIf("mapBlockType", MapBlockType.GameObject)]
     public Vector2Int blockSize = new Vector2Int();
     [ShowIf("mapBlockType", MapBlockType.Tile)]
     public List<Vector2Int> tileOffsets;
@@ -40,6 +40,13 @@ public class MapBlockData : ItemData
         {
             loot.Add(new LootRules { item = this, chance = 100, min = 1, max = 1 });
         }
+    }
+
+    [ShowIf("mapBlockType", MapBlockType.GameObject)]
+    [Button]
+    protected void SetObjectsSize()
+    {
+        blockSize = new Vector2Int((int)Math.Round(itemIcon.rect.width/2), (int)Math.Round(itemIcon.rect.height/2));
     }
 
     [Serializable]

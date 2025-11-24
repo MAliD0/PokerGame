@@ -121,15 +121,10 @@ public class WorldMapManager : NetworkBehaviour
 
         if (data.mapLayerType == MapLayerType.foreGround)
         {
-            if (!baseLayer.IsTilePresented(pos))
+            if (!baseLayer.IsFootprintFullyOccupied(pos, data.blockSize.x, data.blockSize.y))
             {
                 Debug.LogWarning($"[Rules] ForeGround без BackGround на {pos}");
                 return false;
-            }
-
-            if (data.isMultiblock)
-            {
-                baseLayer.IsTilePresented(pos, data.blockSize.x, data.blockSize.y);
             }
         }
         if (data.mapLayerType == MapLayerType.waterGround && baseLayer.IsTilePresented(pos))

@@ -22,11 +22,12 @@ MonoBehaviour:
   mapBlockType: 1
   tile: {fileID: 0}
   gameObject: {fileID: 5155287878607668933, guid: 4a29eb83b724de34d89fef0c39b07033, type: 3}
-  mapLayerType: 1
+  mapLayerType: 3
   isMultiblock: 1
   breakable: 1
   maxHealth: 5
   blockSize: {x: 6, y: 5}
+  tileOffsets: []
   hasLoot: 0
   dropSelf: 0
   loot:

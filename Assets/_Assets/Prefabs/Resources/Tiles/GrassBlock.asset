@@ -27,6 +27,7 @@ MonoBehaviour:
   breakable: 1
   maxHealth: 5
   blockSize: {x: 8, y: 8}
+  tileOffsets: []
   hasLoot: 0
   dropSelf: 0
   loot:

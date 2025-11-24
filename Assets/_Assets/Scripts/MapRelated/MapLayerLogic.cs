@@ -203,7 +203,6 @@ public class MapLayerLogic
 
         return result;
     }
-
     public Dictionary<Vector2Int, HashSet<Vector2Int>> GetFootprintCellLocalPairs(Vector2 clickWorldPos, int sizeX, int sizeY, bool anchorIsTopLeft = false)
     {
         Vector2Int baseCell = WorldToCell(clickWorldPos);
@@ -211,11 +210,9 @@ public class MapLayerLogic
 
         return GetFootprintCellLocalPairs(baseCell, baseLocal, sizeX, sizeY, anchorIsTopLeft);
     }
-
-    public bool IsFootprintOccupied(Vector2Int tile, Vector2Int subtile ,int sizeX, int sizeY, bool anchorIsTopLeft = false)
+    
+    public bool IsFootprintFullyOccupied(Dictionary<Vector2Int, HashSet<Vector2Int>> pairs, int sizeX, int sizeY, bool anchorIsTopLeft = false)
     {
-        Dictionary<Vector2Int, HashSet<Vector2Int>> pairs = GetFootprintCellLocalPairs(tile,subtile, sizeX, sizeY, anchorIsTopLeft);
-
         foreach (Vector2Int tileCell in pairs.Keys)
         {
             foreach (Vector2Int localPos in pairs[tileCell])
@@ -224,33 +221,29 @@ public class MapLayerLogic
                 if (!_bounds.Contains(tileCell))
                 {
                     Debug.LogWarning($"[Place] {tileCell} out of bounds");
-                    return true;
+                    return false;
                 }
 
-                if (IsSubTilePresented(tileCell, localPos))
+                if (!IsSubTilePresented(tileCell, localPos))
                 {
                     Debug.LogWarning($"[Place] subtile {localPos} in cell {tileCell} occupied");
-                    return true;
+                    return false;
                 }
 
                 // also check if the full anchorTile (main anchorTile) blocks placement if necessary:
-                // if (IsTilePresented(tileCell))
-                // {
-                //     Debug.LogWarning($"[Place] main tile {tileCell} occupied");
-                //     return true;
-                // }
+                if (!IsTilePresented(tileCell))
+                {
+                    Debug.LogWarning($"[Place] main tile {tileCell} occupied");
+                    return false;
+                }
             }
         }
 
-        return false;
+        return true;
+
     }
-
-    // Example helper that checks whether any anchorSubtile in the footprint is already present/occupied.
-    // clickWorldPos = world coordinates of click, sizeX/Y = object size in subtiles.
-    public bool IsFootprintOccupied(Vector2 clickWorldPos, int sizeX, int sizeY, bool anchorIsTopLeft = false)
+    public bool IsFootprintOccupied(Dictionary<Vector2Int, HashSet<Vector2Int>> pairs, int sizeX, int sizeY, bool anchorIsTopLeft = false)
     {
-        Dictionary<Vector2Int, HashSet<Vector2Int>> pairs = GetFootprintCellLocalPairs(clickWorldPos, sizeX, sizeY, anchorIsTopLeft);
-
         foreach (Vector2Int tileCell in pairs.Keys)
         {
             foreach (Vector2Int localPos in pairs[tileCell])
@@ -278,6 +271,25 @@ public class MapLayerLogic
         }
 
         return false;
+
+    }
+   
+    public bool IsFootprintFullyOccupied(Vector2 clickWorldPos, int sizeX, int sizeY, bool anchorIsTopLeft = false)
+    {
+        Dictionary<Vector2Int, HashSet<Vector2Int>> pairs = GetFootprintCellLocalPairs(clickWorldPos, sizeX, sizeY, anchorIsTopLeft);
+        return IsFootprintFullyOccupied(pairs, sizeX, sizeY, anchorIsTopLeft);
+    }
+   
+    public bool IsFootprintOccupied(Vector2Int tile, Vector2Int subtile ,int sizeX, int sizeY, bool anchorIsTopLeft = false)
+    {
+        Dictionary<Vector2Int, HashSet<Vector2Int>> pairs = GetFootprintCellLocalPairs(tile,subtile, sizeX, sizeY, anchorIsTopLeft);
+        
+        return IsFootprintOccupied(pairs, sizeX, sizeY, anchorIsTopLeft);
+    }
+    public bool IsFootprintOccupied(Vector2 clickWorldPos, int sizeX, int sizeY, bool anchorIsTopLeft = false)
+    {
+        Dictionary<Vector2Int, HashSet<Vector2Int>> pairs = GetFootprintCellLocalPairs(clickWorldPos, sizeX, sizeY, anchorIsTopLeft);
+        return IsFootprintOccupied(pairs, sizeX, sizeY, anchorIsTopLeft);
     }
 
     // Replace CanBePlaced(Vector2 pos, MapBlockData data)
@@ -290,35 +302,26 @@ public class MapLayerLogic
     {
         if (data == null) return false;
 
-        if (data.isMultiblock)
-        {
-            // If you want subtiles-based placement for multiblock, use IsFootprintOccupied.
-            // Here is an example using blockSize as anchorSubtile dimensions:
-            Vector2 clickWorld = tile;
-            int sizeX = data.blockSize.x; // number of subtiles in X
-            int sizeY = data.blockSize.y; // number of subtiles in Y
-
-            if (data.mapBlockType == MapBlockType.Tile)
-            {
-                if (LayerTiles.ContainsKey(tile))
-                    return false;
-            }
-            else
-            {
-                if (IsFootprintOccupied(tile, subtile, sizeX, sizeY, anchorIsTopLeft: false))
-                    return false;
-            }
-        }
 
         if (!_bounds.Contains(UtillityMath.VectorToVectorInt(tile)))
         {
             Debug.LogWarning($"[Place] {tile} вне допустимых границ");
             return false;
         }
-        if (LayerTiles.ContainsKey(UtillityMath.VectorToVectorInt(tile)))
+        
+        Vector2 clickWorld = tile;
+        int sizeX = data.blockSize.x; // number of subtiles in X
+        int sizeY = data.blockSize.y; // number of subtiles in Y
+
+        if (data.mapBlockType == MapBlockType.Tile)
         {
-            Debug.LogWarning($"[Place] {tile} занята");
-            return false;
+            if (LayerTiles.ContainsKey(tile))
+                return false;
+        }
+        else
+        {
+            if (IsFootprintOccupied(tile, subtile, sizeX, sizeY, anchorIsTopLeft: false))
+                return false;
         }
 
         return true;

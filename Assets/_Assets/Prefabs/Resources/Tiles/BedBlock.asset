@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d3a384af40ef3bf4e98c3b0f98882778, type: 3}
   m_Name: BedBlock
   m_EditorClassIdentifier: 
-  itemIcon: {fileID: 1263421344, guid: 0bb016c5622263047bb9be6893a82a5c, type: 3}
+  itemIcon: {fileID: -1629454885, guid: 0bb016c5622263047bb9be6893a82a5c, type: 3}
   itemType: 1
   isStackable: 1
   maxStack: 24
@@ -28,6 +28,7 @@ MonoBehaviour:
   isMultiblock: 1
   breakable: 1
   maxHealth: 5
+  blockSize: {x: 7, y: 11}
   tileOffsets:
   - {x: 0, y: 0}
   - {x: 0, y: 1}
