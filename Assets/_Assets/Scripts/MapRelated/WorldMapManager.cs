@@ -75,9 +75,9 @@ public class WorldMapManager : NetworkBehaviour
     private void Start()
     {
         // Инициализируем слои данных
-        baseLayer = new MapLayerLogic(new MapBounds(minX,maxX,minY,maxY));
-        foreLayer = new MapLayerLogic(new MapBounds(minX, maxX, minY, maxY));
-        waterLayer = new MapLayerLogic(new MapBounds(minX, maxX, minY, maxY));
+        baseLayer = new MapLayerLogic(new MapBounds(minX,maxX,minY,maxY , false));
+        foreLayer = new MapLayerLogic(new MapBounds(minX, maxX, minY, maxY, false));
+        waterLayer = new MapLayerLogic(new MapBounds(minX, maxX, minY, maxY, false));
 
         // Инициализируем графику
         baseLayerGraphics.Init(baseLayer);

@@ -31,6 +31,7 @@ public class MapLayerGraphics : NetworkBehaviour
 
         layerLogic.onMapTilePlaced += OnMapTilePlaced;
         layerLogic.onMapTileRemoved += OnMapTileRemoved;
+        layerLogic.onAllTilesRemoved += OnAllTilesRemoved;
     }
 
     private void OnMapTilePlaced(Dictionary<Vector2Int,HashSet<Vector2Int>> positions, MapBlockData data)
@@ -51,6 +52,31 @@ public class MapLayerGraphics : NetworkBehaviour
             foreach (var pos in positions)
                 LayerVisualsTiles.SetTile(new Vector3Int(pos.Key.x, pos.Key.y, 0), null);
         }
+    }
+    
+    //this method will not be used for server purposes
+    private void OnAllTilesRemoved()
+    {
+        LayerVisualsTiles.ClearAllTiles();
+
+        if(CellToGO == null) return;
+
+        foreach(Vector2Int key in CellToGO.Keys)
+        {
+            foreach(Vector2Int subtileKey in CellToGO[key].Keys)
+            {
+                if(!CellToGO.ContainsKey(key)) continue;
+
+                if(!CellToGO[key].ContainsKey(subtileKey)) continue;
+
+                if(CellToGO[key].TryGetValue(subtileKey, out GameObject go))
+                {
+                    Destroy(go);
+                    Debug.Log("Destroy object");
+                }
+            }
+        }
+        CellToGO.Clear();
     }
 
     // ------------------------ API для менеджера ------------------------
@@ -151,6 +177,8 @@ public class MapLayerGraphics : NetworkBehaviour
         _netlessById.Remove(netlessId);
         Destroy(go);
     }
+
+
 
     [Button]
     public void ClearTilemap()

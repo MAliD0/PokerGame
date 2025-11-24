@@ -21,6 +21,8 @@ public class MapLayerLogic
 
     public event Action<Dictionary<Vector2Int, HashSet<Vector2Int>>, MapBlockData> onMapTilePlaced;
     public event Action<Dictionary<Vector2Int, HashSet<Vector2Int>>, MapBlockType> onMapTileRemoved;
+    public event Action onAllTilesRemoved;
+
     public event Action<Vector2Int /*anchor_tile*/, Vector2Int/*subtile*/, MapBlockData, int /*hp*/, int /*maxHp*/> onTileHealthChanged;
 
     private readonly MapBounds _bounds;
@@ -243,7 +245,6 @@ public class MapLayerLogic
         return false;
     }
 
-
     // Example helper that checks whether any anchorSubtile in the footprint is already present/occupied.
     // clickWorldPos = world coordinates of click, sizeX/Y = object size in subtiles.
     public bool IsFootprintOccupied(Vector2 clickWorldPos, int sizeX, int sizeY, bool anchorIsTopLeft = false)
@@ -323,7 +324,6 @@ public class MapLayerLogic
         return true;
     }
 
-
     // Replace PlaceBlock(Vector2Int tileIndex, Vector2Int subtileIndex, MapBlockData data)
     public bool PlaceBlock(Vector2Int tileIndex, Vector2Int subtileIndex, MapBlockData data)
     {
@@ -388,7 +388,6 @@ public class MapLayerLogic
         return true;
     }
 
-
     // Replace PlaceBlock(Vector2 pos, MapBlockData data)
     public bool PlaceBlock(Vector2 pos, MapBlockData data)
     {
@@ -445,6 +444,14 @@ public class MapLayerLogic
         //foreach (var cell in group) LayerTiles.Remove(cell);
 
         onMapTileRemoved?.Invoke(occupiedTiles, data.mapBlockType);
+    }
+
+    public void RemoveAllTiles()
+    {
+        LayerTiles = new SerializedDictionary<Vector2Int, SerializedDictionary<Vector2Int, MapTile>>();
+        anchorHp = new SerializedDictionary<Vector2Int, SerializedDictionary<Vector2Int, int>>();
+        
+        onAllTilesRemoved?.Invoke();
     }
 
     public int GetHealth(Vector2Int anchor, Vector2Int subTile)

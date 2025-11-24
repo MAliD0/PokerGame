@@ -9,9 +9,16 @@ public class PlayerInputManager : MonoBehaviour
 {
     public Action<Vector2> onMouseLeftPress;
     public Action<Vector2> onMouseRightPress;
+
+    //TODO: Add abillity to enable/disable ghost building?
+    public Action onGhostBuildingActivated;
+
     public Action onInteractPress;
     private PlayerControlls inputActions;
     public Vector2 movementDirection;
+    public Vector2 mouseWorldPosition;
+    public Vector2 mouseScreenPosition;
+
 
     private void OnEnable()
     {
@@ -30,6 +37,12 @@ public class PlayerInputManager : MonoBehaviour
     private void OnDisable()
     {
         inputActions.Main.Disable();   
+    }
+
+    void Update()
+    {
+        mouseScreenPosition = Mouse.current.position.ReadValue();
+        mouseWorldPosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
     }
 
     private void SetRightClick(InputAction.CallbackContext ctx)

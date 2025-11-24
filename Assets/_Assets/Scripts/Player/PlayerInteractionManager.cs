@@ -20,6 +20,8 @@ public class PlayerInteractionManager : MonoBehaviour
         {
             if(hit.gameObject.TryGetComponent<IInteractable>(out IInteractable interactable))
             {
+                if(hit.gameObject.tag == "Ghost") continue;
+                
                 interactables.Add(interactable);    
             }
         }

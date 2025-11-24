@@ -58,6 +58,7 @@ public class PlayerManager : NetworkBehaviour
                 }
             }
         };
+
         playerInputManager.onMouseRightPress += (x) => 
         {
             WorldMapManager.Instance.DamageTileRequestServerRpc(x, damage);
@@ -90,7 +91,6 @@ public class PlayerManager : NetworkBehaviour
     [ClientRpc]
     private void MessageClientRpc(string text)
     {
-
         Debug.Log("Enter Client RPC:" + text);
         dsManager.SayText(text);
     }
@@ -122,6 +122,11 @@ public class PlayerManager : NetworkBehaviour
         playerAnimationController.SetBool("IsWalking", (inputX != 0 || inputY != 0));
 
         playerMovement.Move(inputX, inputY);
+
+        if(itemHeld.itemData != null && itemHeld.itemData.itemType == ItemType.Placeable)
+        {
+            GhostBuildManager.Instance.PlaceGhost(playerInputManager.mouseWorldPosition, (MapBlockData)itemHeld.itemData);
+        }
     }
 
     private void FixedUpdate()
