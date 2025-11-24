@@ -57,14 +57,36 @@ public class MapLayerGraphics : NetworkBehaviour
 
     public void BindObject(Vector2Int anchor ,List<Vector2Int> cells, GameObject go, string netlessId = null)
     {
-        if (netlessId != null)
-            _netlessById[netlessId] = go;
+        if(go == null || netlessId == null)
+        {
+            UnbindByCells(anchor, cells.ToArray());
+        }
+        else
+        {
+            if (netlessId != null)
+                _netlessById[netlessId] = go;
 
-        if(!CellToGO.ContainsKey(anchor))
-            CellToGO.Add(anchor, new SerializedDictionary<Vector2Int, GameObject>());
+            if(!CellToGO.ContainsKey(anchor))
+                CellToGO.Add(anchor, new SerializedDictionary<Vector2Int, GameObject>());
 
-        foreach (var cell in cells)
-            CellToGO[anchor].Add(cell, go);
+            foreach (var cell in cells)
+                CellToGO[anchor].Add(cell, go);
+        }
+    }
+    public void UnbindByCells(Vector2Int anchor, Vector2Int[] subtiles, bool destroyNonNetworked = false)
+    {
+        if (CellToGO.TryGetValue(anchor, out var subtilesWithGO))
+        {
+            foreach(var subtile in subtilesWithGO.Keys)
+            {
+                CellToGO[anchor].Remove(subtile);        
+            }
+
+            if(CellToGO[anchor].Count == 0)
+            {
+                CellToGO.Remove(anchor);
+            }
+        }
     }
 
     public void UnbindByCells(DictEntry[] cells, bool destroyNonNetworked = false)

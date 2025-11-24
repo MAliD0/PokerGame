@@ -94,9 +94,19 @@ public class MapLayerLogic
     {
         if (!LayerTiles.ContainsKey(pos)) return false;
 
-        if (!LayerTiles.TryGetValue(pos, out var inner)) return false;
+        if (!LayerTiles.TryGetValue(pos, out var inner))
+        {
+            Debug.Log("test");
+            return false;
+        }
 
-        return inner.ContainsKey(subtilePos);
+        if (inner.ContainsKey(subtilePos))
+        {
+            Debug.LogWarning($"{subtilePos} was presented in {pos}");
+            return true;
+        }
+
+        return false;
     }
 
     // Convert world position to integral anchorTile cell (consistent with UtillityMath.VectorToVectorInt)
@@ -222,11 +232,11 @@ public class MapLayerLogic
                 }
 
                 // also check if the full anchorTile (main anchorTile) blocks placement if necessary:
-                if (IsTilePresented(tileCell))
-                {
-                    Debug.LogWarning($"[Place] main tile {tileCell} occupied");
-                    return true;
-                }
+                // if (IsTilePresented(tileCell))
+                // {
+                //     Debug.LogWarning($"[Place] main tile {tileCell} occupied");
+                //     return true;
+                // }
             }
         }
 

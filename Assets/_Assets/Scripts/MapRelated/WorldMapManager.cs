@@ -231,7 +231,7 @@ public class WorldMapManager : NetworkBehaviour
         if (!targetLayer.PlaceBlock(pos, data)) return;
 
         // Сообщаем КЛИЕНТАМ положить тайл/ячейки в свой слой данных
-        SetTileForClientsClientRpc(data.mapLayerType, data.GetItemID(), UtillityMath.VectorToVectorInt(pos), ConnectionManager.instance.SendAllExceptHost());
+        SetTileForClientsClientRpc(data.mapLayerType, data.GetItemID(), pos, ConnectionManager.instance.SendAllExceptHost());
         return;
     }
 
@@ -292,7 +292,11 @@ public class WorldMapManager : NetworkBehaviour
 
             // реестр
             if (!_anchorToNetId.TryGetValue(layer, out var dictNet)) _anchorToNetId[layer] = dictNet = new();
-            dictNet[anchor][anchorSubTile] = no.NetworkObjectId;
+
+            if(!dictNet.ContainsKey(anchor)) dictNet.Add(anchor, new SerializedDictionary<Vector2Int, ulong>());
+
+            if(!dictNet[anchor].ContainsKey(anchorSubTile)) dictNet[anchor].Add(anchorSubTile, no.NetworkObjectId);
+            else dictNet[anchor][anchorSubTile] = no.NetworkObjectId;
 
             // Биндинг на клиентах по netId (чтобы графика знала cell->GO)
             BindObjectByNetIdClientRpc(DictEntry.SerializeDictionary(cells).ToArray(), no.NetworkObjectId, layer);
@@ -377,7 +381,7 @@ public class WorldMapManager : NetworkBehaviour
     }
 
     [ClientRpc]
-    private void SetTileForClientsClientRpc(MapLayerType tileType, string mapBlockDataID, Vector2Int position, ClientRpcParams rpcParams = default)
+    private void SetTileForClientsClientRpc(MapLayerType tileType, string mapBlockDataID, Vector2 position, ClientRpcParams rpcParams = default)
     {
         var layer = GetLayer(tileType);
         var data = blockLibrary.GetMapBlockData(mapBlockDataID);
@@ -406,7 +410,6 @@ public class WorldMapManager : NetworkBehaviour
             {
                 // На крайне редких лагах — попробуем пару кадров подождать
                 StartCoroutine(RetryBind(anchor,tiles[anchor].ToArray(), netId, layer));
-
             }
             return;
         }

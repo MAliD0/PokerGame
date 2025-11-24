@@ -26,7 +26,7 @@ MonoBehaviour:
   isMultiblock: 1
   breakable: 1
   maxHealth: 5
-  blockSize: {x: 6, y: 6}
+  blockSize: {x: 7, y: 7}
   tileOffsets: []
   hasLoot: 1
   dropSelf: 1

@@ -22,7 +22,7 @@ MonoBehaviour:
   mapBlockType: 1
   tile: {fileID: 0}
   gameObject: {fileID: 7337151912051207136, guid: cc1de94f4aff49843a765fdb936c074e, type: 3}
-  mapLayerType: 3
+  mapLayerType: 1
   isMultiblock: 1
   breakable: 1
   maxHealth: 5
