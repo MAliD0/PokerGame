@@ -98,13 +98,12 @@ public class MapLayerLogic
 
         if (!LayerTiles.TryGetValue(pos, out var inner))
         {
-            Debug.Log("test");
             return false;
         }
 
         if (inner.ContainsKey(subtilePos))
         {
-            Debug.LogWarning($"{subtilePos} was presented in {pos}");
+            //Debug.LogWarning($"{subtilePos} was presented in {pos}");
             return true;
         }
 
@@ -226,14 +225,14 @@ public class MapLayerLogic
 
                 if (!IsSubTilePresented(tileCell, localPos))
                 {
-                    Debug.LogWarning($"[Place] subtile {localPos} in cell {tileCell} occupied");
+                    Debug.LogWarning($"[Place] subtile {localPos} in cell {tileCell} is not occupied");
                     return false;
                 }
 
                 // also check if the full anchorTile (main anchorTile) blocks placement if necessary:
                 if (!IsTilePresented(tileCell))
                 {
-                    Debug.LogWarning($"[Place] main tile {tileCell} occupied");
+                    Debug.LogWarning($"[Place] main tile {tileCell} is not occupied");
                     return false;
                 }
             }
@@ -262,11 +261,11 @@ public class MapLayerLogic
                 }
 
                 // also check if the full anchorTile (main anchorTile) blocks placement if necessary:
-                if (IsTilePresented(tileCell))
-                {
-                    Debug.LogWarning($"[Place] main tile {tileCell} occupied");
-                    return true;
-                }
+                // if (IsTilePresented(tileCell))
+                // {
+                //     Debug.LogWarning($"[Place] main tile {tileCell} occupied");
+                //     return true;
+                // }
             }
         }
 
