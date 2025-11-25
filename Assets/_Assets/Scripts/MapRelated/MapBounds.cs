@@ -17,4 +17,9 @@ public struct MapBounds
         if (!UseBounds) return true;
         return p.x >= MinX && p.x <= MaxX && p.y >= MinY && p.y <= MaxY;
     }
+    public bool Contains(Vector2 p)
+    {
+        if (!UseBounds) return true;
+        return p.x >= MinX && p.x <= MaxX && p.y >= MinY && p.y <= MaxY;
+    }
 }

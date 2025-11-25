@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 532a54efc2e2fad45a2cf8a6cca0626d, type: 3}
   m_Name: TreeNoise
   m_EditorClassIdentifier: 
-  mapWidth: 80
-  mapHeight: 80
+  mapWidth: 40
+  mapHeight: 40
   scale: 6.35
   pow: 1
   octaves: 1

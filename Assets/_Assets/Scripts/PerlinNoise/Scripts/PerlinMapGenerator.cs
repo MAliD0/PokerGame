@@ -12,7 +12,7 @@ namespace ProceduralGeneration
 {
     public class PerlinMapGenerator : MonoBehaviour
     {
-        public enum NoiseMode { OneDimensionMap, PerlinMap, IslandMap, PerlinWorm, WorleyNoise, ScaledPerlin }
+        public enum NoiseMode { OneDimensionMap, PerlinMap, IslandMap, PerlinWorm, WorleyNoise, ScaledPerlin, PoissonDiscSampling }
         public enum DrawMode { ColorMap, NoiseMap, TileMap, BiomsGeneration }
 
         [SerializeField] private NoiseMode noiseMode;
@@ -276,6 +276,11 @@ namespace ProceduralGeneration
                     break;
                 case NoiseMode.ScaledPerlin:
                     noiseMap = Noise.GenerateNoiseMap(noiseSettings.mapWidth, noiseSettings.mapHeight, seed, noiseSettings.scale, noiseSettings.octaves, noiseSettings.persistance, noiseSettings.lacunarity, noiseSettings.offset, noiseSettings.pow);
+                    break;
+                case NoiseMode.PoissonDiscSampling:
+                    noiseMap = PoissonDicsSampling.ConvertToGrid(
+                        PoissonDicsSampling.GeneratePoints(additionalGeneratingObject.radius, new Vector2(noiseSettings.mapWidth, noiseSettings.mapHeight),30)
+                    ,additionalGeneratingObject.radius, new Vector2(noiseSettings.mapWidth, noiseSettings.mapHeight)); 
                     break;
             }
 
